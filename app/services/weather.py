@@ -39,7 +39,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "forecast_days": 7
         }
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(trust_env=False, timeout=15.0) as client:
         try:
             response = await client.get(url, params=params)
             response.raise_for_status()

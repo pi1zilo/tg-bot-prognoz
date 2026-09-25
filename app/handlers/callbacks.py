@@ -17,12 +17,12 @@ async def cb_main_menu(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
     if not user:
-        await callback.message.edit_text("⚠️ Город не настроен. Пожалуйста, отправьте /start.")
+        await callback.message.edit_text("⚠️ Населенный пункт не настроен. Пожалуйста, отправьте /start.")
         await callback.answer()
         return
 
     await callback.message.edit_text(
-        f"📍 Текущий город: <b>{user['city']}</b>\n\n"
+        f"📍 Текущее место: <b>{user['city']}</b>\n\n"
         "Выберите день для просмотра прогноза погоды:",
         reply_markup=get_main_menu_keyboard(),
         parse_mode="HTML"
@@ -63,7 +63,7 @@ async def cb_day_forecast(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
-@router.callback_query(F.data == "details:0")
+@router.callback_query(F.data.startswith("details:"))
 async def cb_hourly_details(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
@@ -72,31 +72,44 @@ async def cb_hourly_details(callback: CallbackQuery):
         await callback.answer()
         return
 
-    await callback.message.edit_text("⏳ Загружаю подробный почасовой прогноз...")
+    parts = callback.data.split(":")
+    try:
+        offset = int(parts[1])
+    except (IndexError, ValueError):
+        offset = 0
+
+    period = parts[2] if len(parts) > 2 else "summary"
 
     try:
         weather = await get_weather_for_day(
             latitude=user["latitude"],
             longitude=user["longitude"],
             timezone=user["timezone"],
-            offset=0
+            offset=offset
         )
     except Exception as e:
         await callback.message.edit_text(
             f"⚠️ Ошибка получения прогноза: {e}",
-            reply_markup=get_day_forecast_keyboard(0)
+            reply_markup=get_day_forecast_keyboard(offset)
         )
         await callback.answer()
         return
 
-    text = format_hourly_weather(user["city"], 0, weather)
-    keyboard = get_details_keyboard(0)
+    text = format_hourly_weather(user["city"], offset, weather, period=period)
+    keyboard = get_details_keyboard(offset, active_period=period)
 
     # Check length limits for detailed forecast message
     if len(text) > 4096:
         text = text[:4093] + "..."
 
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception as e:
+        if "message is not modified" in str(e).lower():
+            await callback.answer()
+            return
+        raise
+
     await callback.answer()
 
 @router.callback_query(F.data.startswith("refresh:"))
@@ -142,7 +155,13 @@ async def cb_refresh_details(callback: CallbackQuery):
         await callback.answer()
         return
 
-    offset = int(callback.data.split(":")[1])
+    parts = callback.data.split(":")
+    try:
+        offset = int(parts[1])
+    except (IndexError, ValueError):
+        offset = 0
+
+    period = parts[2] if len(parts) > 2 else "summary"
     await callback.message.edit_text("🔄 Обновляю подробный прогноз...")
 
     try:
@@ -161,11 +180,18 @@ async def cb_refresh_details(callback: CallbackQuery):
         await callback.answer()
         return
 
-    text = format_hourly_weather(user["city"], offset, weather)
-    keyboard = get_details_keyboard(offset)
+    text = format_hourly_weather(user["city"], offset, weather, period=period)
+    keyboard = get_details_keyboard(offset, active_period=period)
 
     if len(text) > 4096:
         text = text[:4093] + "..."
 
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception as e:
+        if "message is not modified" in str(e).lower():
+            await callback.answer("Подробный прогноз уже актуален!")
+            return
+        raise
+
     await callback.answer("Подробный прогноз обновлен!")

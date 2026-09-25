@@ -1,7 +1,14 @@
+import os
+import sys
 import unittest
+
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from app.utils.dates import get_user_timezone, get_target_date, get_day_title
 from app.utils.weather_codes import get_weather_info, get_wind_direction
 from app.utils.formatters import fmt_temp, format_daily_weather, format_hourly_weather
+from tests.test_geocoding import TestGeocodingParsing
 
 class TestWeatherBotUtils(unittest.TestCase):
     def test_timezone_loading(self):
