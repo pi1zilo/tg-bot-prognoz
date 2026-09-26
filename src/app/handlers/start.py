@@ -5,9 +5,9 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from app.database.database import get_user, save_user
-from app.services.geocoding import search_settlements
-from app.keyboards.weather import get_main_menu_keyboard, get_settlements_keyboard
+from src.app.database.database import get_user, save_user
+from src.app.services.geocoding import search_settlements
+from src.app.keyboards.weather import get_main_menu_keyboard, get_settlements_keyboard
 
 class CityStates(StatesGroup):
     waiting_for_city = State()

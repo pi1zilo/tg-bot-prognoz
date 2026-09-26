@@ -1,9 +1,9 @@
 import time
 import httpx
 from datetime import datetime
-from app.utils.dates import get_target_date, format_date_ru
-from app.utils.weather_codes import get_weather_info, get_wind_direction
-from app.utils.logger import log_error
+from src.app.utils.dates import get_target_date, format_date_ru
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+from src.app.utils.logger import log_error
 
 # Simple in-memory cache: key -> (timestamp, data)
 _WEATHER_CACHE: dict[str, tuple[float, dict]] = {}

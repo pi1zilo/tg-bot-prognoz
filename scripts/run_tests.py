@@ -2,12 +2,16 @@ import os
 import sys
 import unittest
 
-# Ensure project root is in sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Ensure project root and src are in sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
+for p in (PROJECT_ROOT, SRC_DIR):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from app.utils.dates import get_user_timezone, get_target_date, get_day_title
-from app.utils.weather_codes import get_weather_info, get_wind_direction
-from app.utils.formatters import fmt_temp, format_daily_weather, format_hourly_weather
+from src.app.utils.dates import get_user_timezone, get_target_date, get_day_title
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+from src.app.utils.formatters import fmt_temp, format_daily_weather, format_hourly_weather
 from tests.test_geocoding import TestGeocodingParsing
 
 class TestWeatherBotUtils(unittest.TestCase):

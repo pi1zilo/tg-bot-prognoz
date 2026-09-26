@@ -1,13 +1,25 @@
+# ==============================================================
+# Git Ignore Configuration for Prognoz Telegram Bot
+# ==============================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+
+# C extensions
+*.obj
+*.o
+*.pyd
 
 # Virtual Environments
 .venv/
 venv/
 ENV/
 env/
+env.bak/
+venv.bak/
 
 # Environment and sensitive keys
 .env
@@ -17,29 +29,68 @@ keys.txt
 *key*.txt
 *secret*.txt
 *token*.txt
+*.pem
+*.key
 
-# Databases
+# Trash isolation folder
+_trash_candidates/
+
+# Databases & runtime data
 *.db
 *.sqlite
 *.sqlite3
+data/*
+!data/.gitkeep
 
 # Logs
 *.log
 logs/*
 !logs/.gitkeep
-!data/.gitkeep
 
 # Testing and coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
+nosetests.xml
 
-# Reports and internal documentation
+# Linters and type checkers
+.mypy_cache/
+.ruff_cache/
+
+# Packaging and distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Internal reports and structure documentation
 PREPARATION_REPORT.md
+INITIAL_STRUCTURE.md
+PROJECT_STRUCTURE.md
 
-# IDE and OS files
+# IDEs and Editors
 .idea/
 .vscode/
-.DS_Store
+*.swp
+*.swo
+*~
+
+# Operating System specific files
+# Windows
 Thumbs.db
-Desktop.ini
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~

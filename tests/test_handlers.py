@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.base import StorageKey
 
-from app.handlers.start import process_city_input, cb_select_city
+from src.app.handlers.start import process_city_input, cb_select_city
 
 @pytest.fixture
 def fsm_context():
@@ -38,8 +38,8 @@ async def test_process_city_input_single_village(fsm_context):
         }
     ]
     
-    with patch("app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
-         patch("app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
+    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
+         patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
         await process_city_input(message, fsm_context)
         
         mock_save.assert_awaited_once_with(
@@ -83,7 +83,7 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
         }
     ]
     
-    with patch("app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
+    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
         await process_city_input(message, fsm_context)
         
         # Multiple places found: candidates stored in state, keyboard shown
@@ -102,7 +102,7 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
     callback.message = callback_message
     callback.answer = AsyncMock()
 
-    with patch("app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
+    with patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
         await cb_select_city(callback, fsm_context)
         mock_save.assert_awaited_once_with(
             telegram_id=1,
@@ -115,7 +115,7 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
 
 @pytest.mark.asyncio
 async def test_cb_hourly_details():
-    from app.handlers.callbacks import cb_hourly_details
+    from src.app.handlers.callbacks import cb_hourly_details
     callback = AsyncMock(spec=CallbackQuery)
     callback.from_user = User(id=1, is_bot=False, first_name="User")
     callback.data = "details:0:day"
@@ -157,8 +157,8 @@ async def test_cb_hourly_details():
         ]
     }
 
-    with patch("app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value=mock_user), \
-         patch("app.handlers.callbacks.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather):
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value=mock_user), \
+         patch("src.app.handlers.callbacks.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather):
         await cb_hourly_details(callback)
 
         callback_message.edit_text.assert_awaited_once()

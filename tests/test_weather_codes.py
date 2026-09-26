@@ -1,4 +1,4 @@
-from app.utils.weather_codes import get_weather_info, get_wind_direction
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
 
 def test_weather_info():
     emoji, desc = get_weather_info(0)

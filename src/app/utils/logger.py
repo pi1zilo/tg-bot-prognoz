@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from app.config import BASE_DIR
+from src.app.config import BASE_DIR
 
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)

@@ -1,5 +1,5 @@
-from app.utils.weather_codes import get_weather_info, get_wind_direction
-from app.utils.dates import get_day_title
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+from src.app.utils.dates import get_day_title
 
 def fmt_temp(t: float | int | None) -> str:
     if t is None:

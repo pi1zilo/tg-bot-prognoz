@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from app.services.geocoding import (
+from src.app.services.geocoding import (
     parse_settlement_query,
     format_short_display,
     format_full_display,

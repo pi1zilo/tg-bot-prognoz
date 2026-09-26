@@ -1,5 +1,5 @@
 import pytest
-from app.utils.formatters import (
+from src.app.utils.formatters import (
     fmt_temp,
     get_hour_icon,
     format_daily_weather,
@@ -8,7 +8,7 @@ from app.utils.formatters import (
     format_hourly_weather,
     PERIODS_CONFIG
 )
-from app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard
+from src.app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard
 
 def test_fmt_temp():
     assert fmt_temp(15) == "+15"

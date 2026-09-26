@@ -1,14 +1,14 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.database.database import get_user
-from app.services.weather import get_weather_for_day
-from app.keyboards.weather import (
+from src.app.database.database import get_user
+from src.app.services.weather import get_weather_for_day
+from src.app.keyboards.weather import (
     get_main_menu_keyboard,
     get_day_forecast_keyboard,
     get_details_keyboard
 )
-from app.utils.formatters import format_daily_weather, format_hourly_weather
+from src.app.utils.formatters import format_daily_weather, format_hourly_weather
 
 router = Router()
 

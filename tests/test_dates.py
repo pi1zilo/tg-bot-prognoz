@@ -1,4 +1,4 @@
-from app.utils.dates import get_user_timezone, get_target_date, get_day_title
+from src.app.utils.dates import get_user_timezone, get_target_date, get_day_title
 
 def test_timezone_loading():
     tz = get_user_timezone("Europe/Moscow")
