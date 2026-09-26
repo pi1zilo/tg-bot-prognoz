@@ -6,6 +6,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![English README](https://img.shields.io/badge/README-English-blue.svg)](README_EN.md)
 
 Асинхронный Telegram-бот для точного прогноза погоды и архива фактических данных с интеллектуальным поиском малых населённых пунктов и детализацией по периодам суток.
 
@@ -29,6 +30,7 @@
 - [🐳 Docker](#-docker)
 - [👨‍💻 Разработка](#-разработка)
 - [🔍 Устранение неполадок (Troubleshooting)](#-устранение-неполадок-troubleshooting)
+- [🤝 Атрибуция и форки](#-атрибуция-и-форки)
 - [📄 Лицензия](#-лицензия)
 - [🔗 Ссылки](#-ссылки)
 
@@ -494,6 +496,20 @@ volumes:
   - Подробная информация об ошибке и HTTP-статусе автоматически записывается в файл `logs/errors.log`.
 - **Проблемы с базой данных в Docker**:
   - Если данные не сохраняются между перезапусками, убедитесь, что в `docker-compose.yml` подключён volume `bot_data:/app/data`, а переменная `DATABASE_PATH` не указывает на несуществующую внешнюю директорию.
+
+---
+
+## 🤝 Атрибуция и форки
+
+Этот проект является открытым (Open Source). Если вы создаёте форк, модифицируете код или используете модули этого бота в своих собственных проектах, пожалуйста, сохраняйте указание авторства и ссылку на оригинальный репозиторий:
+
+- **Оригинальный автор**: [@pi1zilo](https://github.com/pi1zilo)
+- **Репозиторий**: [https://github.com/pi1zilo/tg-bot-prognoz](https://github.com/pi1zilo/tg-bot-prognoz)
+
+**Пример указания авторства в вашем README или описании бота:**
+```text
+Based on Prognoz Weather Bot by @pi1zilo (https://github.com/pi1zilo/tg-bot-prognoz)
+```
 
 ---
 
