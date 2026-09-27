@@ -1,14 +1,11 @@
 import logging
-from aiogram import Router, F
+
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from src.app.database.database import get_user
+from src.app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard, get_main_menu_keyboard
 from src.app.services.weather import get_weather_for_day
-from src.app.keyboards.weather import (
-    get_main_menu_keyboard,
-    get_day_forecast_keyboard,
-    get_details_keyboard
-)
 from src.app.utils.formatters import format_daily_weather, format_hourly_weather
 from src.app.utils.i18n import t
 
@@ -55,7 +52,7 @@ async def cb_day_forecast(callback: CallbackQuery):
         await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
-    
+
     await callback.message.edit_text(t("loading_weather", user_lang))
 
     try:

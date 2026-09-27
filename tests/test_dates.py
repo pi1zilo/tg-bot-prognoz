@@ -1,4 +1,5 @@
-from src.app.utils.dates import get_user_timezone, get_target_date, get_day_title
+from src.app.utils.dates import get_day_title, get_target_date, get_user_timezone
+
 
 def test_timezone_loading():
     tz = get_user_timezone("Europe/Moscow")
@@ -10,7 +11,7 @@ def test_target_dates():
     yesterday = get_target_date(tz_str, -1)
     tomorrow = get_target_date(tz_str, 1)
     after_tomorrow = get_target_date(tz_str, 2)
-    
+
     assert (today.date() - yesterday.date()).days == 1
     assert (tomorrow.date() - today.date()).days == 1
     assert (after_tomorrow.date() - tomorrow.date()).days == 1

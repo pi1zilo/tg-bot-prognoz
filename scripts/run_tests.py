@@ -9,10 +9,10 @@ for p in (PROJECT_ROOT, SRC_DIR):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from src.app.utils.dates import get_user_timezone, get_target_date, get_day_title
-from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+from src.app.utils.dates import get_day_title, get_target_date, get_user_timezone
 from src.app.utils.formatters import fmt_temp, format_daily_weather, format_hourly_weather
-from tests.test_geocoding import TestGeocodingParsing
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+
 
 class TestWeatherBotUtils(unittest.TestCase):
     def test_timezone_loading(self):
@@ -25,7 +25,7 @@ class TestWeatherBotUtils(unittest.TestCase):
         yesterday = get_target_date(tz_str, -1)
         tomorrow = get_target_date(tz_str, 1)
         after_tomorrow = get_target_date(tz_str, 2)
-        
+
         self.assertEqual((today.date() - yesterday.date()).days, 1)
         self.assertEqual((tomorrow.date() - today.date()).days, 1)
         self.assertEqual((after_tomorrow.date() - tomorrow.date()).days, 1)

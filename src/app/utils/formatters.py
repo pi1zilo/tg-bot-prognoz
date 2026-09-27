@@ -1,7 +1,9 @@
 import html
 import re
+
+from src.app.utils.dates import format_date, get_day_title
 from src.app.utils.weather_codes import get_weather_info, get_wind_direction
-from src.app.utils.dates import get_day_title, format_date
+
 
 def clean_city_display(city: str) -> str:
     """

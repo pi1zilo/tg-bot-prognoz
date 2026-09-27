@@ -1,21 +1,20 @@
 import logging
-from aiogram import Router, F
-from aiogram.filters import Command, CommandObject
-from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.fsm.context import FSMContext
 
-from src.app.database.database import get_user, save_user, set_user_language, get_user_language
-from src.app.services.geocoding import search_settlements
-from src.app.services.weather import get_weather_for_day
+from aiogram import F, Router
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
+
+from src.app.database.database import get_user, get_user_language, save_user, set_user_language
 from src.app.keyboards.weather import (
+    get_language_keyboard,
     get_main_menu_keyboard,
     get_settlements_keyboard,
-    get_day_forecast_keyboard,
-    get_language_keyboard,
 )
-from src.app.utils.formatters import format_daily_weather
+from src.app.services.geocoding import search_settlements
 from src.app.utils.i18n import t
+
 
 class CityStates(StatesGroup):
     waiting_for_city = State()
@@ -27,7 +26,7 @@ async def cmd_start(message: Message, state: FSMContext):
     logging.info(f"Received /start from user {message.from_user.id} ({message.from_user.username})")
     user_id = message.from_user.id
     user = await get_user(user_id)
-    
+
     # Check if first launch (user not registered or no language selected and no city)
     if not user or (not user.get("language") and not user.get("city")):
         if message.chat.type in ("group", "supergroup"):
@@ -107,107 +106,7 @@ async def cb_set_language(callback: CallbackQuery, state: FSMContext):
         )
     await callback.answer()
 
-@router.message(Command("pogoda", "weather"))
-async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext):
-    user_id = message.from_user.id
-    logging.info(f"Received /{command.command} from user {user_id} with args='{command.args}'")
-    user_lang = await get_user_language(user_id)
-    
-    city_query = command.args.strip() if command.args else ""
-    
-    if city_query:
-        msg = await message.answer(t("searching", user_lang))
-        try:
-            places = await search_settlements(city_query, lang=user_lang)
-        except RuntimeError:
-            await msg.edit_text(t("search_service_error", user_lang))
-            return
-        except Exception as e:
-            logging.error(f"Error searching settlements for '{city_query}': {e}")
-            await msg.edit_text(t("search_error", user_lang))
-            return
-
-        if not places:
-            await msg.edit_text(
-                t("not_found", user_lang, city_query=city_query),
-                parse_mode="HTML"
-            )
-            return
-
-        if len(places) == 1:
-            place = places[0]
-            await save_user(
-                telegram_id=user_id,
-                city=place["display_name"],
-                latitude=place["latitude"],
-                longitude=place["longitude"],
-                timezone=place["timezone"]
-            )
-            await state.clear()
-            
-            try:
-                weather = await get_weather_for_day(
-                    latitude=place["latitude"],
-                    longitude=place["longitude"],
-                    timezone=place["timezone"],
-                    offset=0
-                )
-            except Exception as e:
-                logging.error(f"Error fetching weather for '{place['display_name']}': {e}")
-                await msg.edit_text(
-                    t("city_set_weather_fail", user_lang, city=place["display_name"]),
-                    parse_mode="HTML"
-                )
-                return
-
-            text = format_daily_weather(place["display_name"], 0, weather, lang=user_lang)
-            keyboard = get_day_forecast_keyboard(0, lang=user_lang)
-            await msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-            return
-
-        # Multiple candidates found
-        await state.update_data(city_candidates=places)
-        keyboard = get_settlements_keyboard(places, lang=user_lang)
-        await msg.edit_text(
-            t("multiple_found", user_lang, city_query=city_query),
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
-        return
-
-    # No city argument provided: check if user has a saved city
-    user = await get_user(user_id)
-    if user and user.get("city"):
-        msg = await message.answer(t("loading_weather", user_lang))
-        try:
-            weather = await get_weather_for_day(
-                latitude=user["latitude"],
-                longitude=user["longitude"],
-                timezone=user["timezone"],
-                offset=0
-            )
-        except Exception as e:
-            logging.error(f"Error fetching weather for user {user_id}: {e}")
-            await msg.edit_text(t("weather_error_generic", user_lang))
-            return
-
-        text = format_daily_weather(user["city"], 0, weather, lang=user_lang)
-        keyboard = get_day_forecast_keyboard(0, lang=user_lang)
-        await msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-        return
-
-    # User not found or no city saved and no argument provided
-    if message.chat.type in ("group", "supergroup"):
-        await message.answer(
-            t("group_no_city", user_lang),
-            parse_mode="HTML"
-        )
-    else:
-        await state.set_state(CityStates.waiting_for_city)
-        await message.answer(
-            t("private_no_city", user_lang),
-            parse_mode="HTML"
-        )
+# Re-export cmd_pogoda from weather handler for backward compatibility
 
 @router.callback_query(F.data == "change_city")
 async def cb_change_city(callback: CallbackQuery, state: FSMContext):
@@ -228,7 +127,7 @@ async def process_city_input(message: Message, state: FSMContext):
         return
 
     msg = await message.answer(t("searching", user_lang))
-    
+
     try:
         places = await search_settlements(city_query, lang=user_lang)
     except RuntimeError:
@@ -257,7 +156,7 @@ async def process_city_input(message: Message, state: FSMContext):
             timezone=place["timezone"]
         )
         await state.clear()
-        
+
         await msg.edit_text(
             t("city_set_success", user_lang, city=place["display_name"]),
             parse_mode="HTML"
@@ -290,7 +189,7 @@ async def cb_select_city(callback: CallbackQuery, state: FSMContext):
 
     data = await state.get_data()
     candidates = data.get("city_candidates", [])
-    
+
     if not candidates or idx >= len(candidates):
         await callback.answer(t("list_outdated", user_lang), show_alert=True)
         if callback.message.chat.type == "private":
@@ -306,7 +205,7 @@ async def cb_select_city(callback: CallbackQuery, state: FSMContext):
         timezone=place["timezone"]
     )
     await state.clear()
-    
+
     await callback.message.edit_text(
         t("city_set_success", user_lang, city=place["display_name"]),
         parse_mode="HTML"

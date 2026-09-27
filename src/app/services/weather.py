@@ -1,10 +1,11 @@
 import logging
 import time
-import httpx
 from datetime import datetime
-from src.app.utils.dates import get_target_date, format_date_ru
-from src.app.utils.weather_codes import get_weather_info, get_wind_direction
-from src.app.utils.logger import log_error
+
+import httpx
+
+from src.app.utils.dates import format_date_ru, get_target_date
+from src.app.utils.weather_codes import get_wind_direction
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ CACHE_TTL = 300  # 5 minutes
 async def fetch_weather_data(latitude: float, longitude: float, timezone: str, target_date: datetime, is_archive: bool = False) -> dict:
     date_str = target_date.strftime("%Y-%m-%d")
     cache_key = f"{latitude}_{longitude}_{date_str}_{is_archive}"
-    
+
     current_time = time.time()
     if cache_key in _WEATHER_CACHE:
         cached_time, cached_data = _WEATHER_CACHE[cache_key]
@@ -70,7 +71,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
 
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
-    
+
     if not times:
         logger.error(f"Open-Meteo returned empty time list for lat={latitude}, lon={longitude}, date={date_str}, archive={is_archive}")
         raise ValueError("Нет данных о погоде на выбранную дату.")
@@ -91,30 +92,38 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             dt = datetime.fromisoformat(t_str)
         except ValueError:
             continue
-            
+
         if dt.date() != target_date.date():
             continue
-            
+
         temp = hourly.get("temperature_2m", [])[i] if i < len(hourly.get("temperature_2m", [])) else None
         app_temp = hourly.get("apparent_temperature", [])[i] if i < len(hourly.get("apparent_temperature", [])) else None
         precip = hourly.get("precipitation", [])[i] if i < len(hourly.get("precipitation", [])) else 0.0
-        
+
         prob_list = hourly.get("precipitation_probability", [])
         precip_prob = prob_list[i] if prob_list and i < len(prob_list) else 0
-        
+
         wind_speed = hourly.get("wind_speed_10m", [])[i] if i < len(hourly.get("wind_speed_10m", [])) else 0.0
         wind_dir = hourly.get("wind_direction_10m", [])[i] if i < len(hourly.get("wind_direction_10m", [])) else 0
         cloud = hourly.get("cloud_cover", [])[i] if i < len(hourly.get("cloud_cover", [])) else 0
         w_code = hourly.get("weather_code", [])[i] if i < len(hourly.get("weather_code", [])) else 0
 
-        if temp is not None: temps.append(temp)
-        if app_temp is not None: apparent_temps.append(app_temp)
-        if precip is not None: precips.append(precip)
-        if precip_prob is not None: precip_probs.append(precip_prob)
-        if wind_speed is not None: wind_speeds.append(wind_speed)
-        if wind_dir is not None: wind_dirs.append(wind_dir)
-        if cloud is not None: cloud_covers.append(cloud)
-        if w_code is not None: weather_codes.append(w_code)
+        if temp is not None:
+            temps.append(temp)
+        if app_temp is not None:
+            apparent_temps.append(app_temp)
+        if precip is not None:
+            precips.append(precip)
+        if precip_prob is not None:
+            precip_probs.append(precip_prob)
+        if wind_speed is not None:
+            wind_speeds.append(wind_speed)
+        if wind_dir is not None:
+            wind_dirs.append(wind_dir)
+        if cloud is not None:
+            cloud_covers.append(cloud)
+        if w_code is not None:
+            weather_codes.append(w_code)
 
         hours_data.append({
             "time": dt.strftime("%H:%M"),
@@ -170,7 +179,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
     max_precip_prob = max(precip_probs) if precip_probs else 0
     avg_wind_speed = sum(wind_speeds) / len(wind_speeds) if wind_speeds else 0.0
     max_wind_speed = max(wind_speeds) if wind_speeds else avg_wind_speed
-    
+
     mid_idx = len(hours_data) // 2
     median_weather_code = hours_data[mid_idx]["weather_code"] if hours_data else 0
     median_wind_dir = hours_data[mid_idx]["wind_direction"] if hours_data else 0
@@ -204,10 +213,10 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
 async def get_weather_for_day(latitude: float, longitude: float, timezone: str, offset: int, force_refresh: bool = False) -> dict:
     target_date = get_target_date(timezone, offset)
     is_archive = (offset == -1)
-    
+
     if force_refresh:
         date_str = target_date.strftime("%Y-%m-%d")
         cache_key = f"{latitude}_{longitude}_{date_str}_{is_archive}"
         _WEATHER_CACHE.pop(cache_key, None)
-        
+
     return await fetch_weather_data(latitude, longitude, timezone, target_date, is_archive=is_archive)

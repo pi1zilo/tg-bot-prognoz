@@ -1,5 +1,5 @@
 import logging
-from pathlib import Path
+
 from src.app.config import BASE_DIR
 
 LOGS_DIR = BASE_DIR / "logs"
@@ -9,7 +9,7 @@ ERROR_LOG_PATH = LOGS_DIR / "errors.log"
 def setup_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    
+
     # Remove existing handlers to avoid duplication
     if logger.handlers:
         logger.handlers.clear()
@@ -22,7 +22,7 @@ def setup_logging():
         datefmt="%Y-%m-%d %H:%M:%S"
     )
     file_handler.setFormatter(file_formatter)
-    
+
     # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
@@ -31,7 +31,7 @@ def setup_logging():
         datefmt="%H:%M:%S"
     )
     console_handler.setFormatter(console_formatter)
-    
+
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 

@@ -2,7 +2,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-45%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-59%20passed-success.svg)](tests/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -85,13 +87,18 @@
 - **Оптимизированное хранение данных (SQLite)**:
   - Персистентное сохранение выбранного места, координат, таймзоны и языка пользователя в SQLite через асинхронный драйвер `aiosqlite`.
   - Все проверки схемы и миграции вынесены в `init_db()`, исключая накладные расходы `PRAGMA table_info` при обычных CRUD-запросах.
-- **Команды `/pogoda`, `/weather` и `/lang`**:
+- **Команды бота (`/pogoda`, `/weather`, `/city`, `/lang`, `/help`)**:
   - Быстрый вызов бота по команде `/pogoda` (или `/weather`) без необходимости использовать `/start` в общих чатах.
   - Мгновенный показ погоды на сегодня, если у пользователя уже сохранён город.
   - Поддержка аргумента с городом прямо в команде: `/pogoda Москва`, `/weather London`, `/pogoda пгт Шерегеш`.
-  - Команда `/lang` (`/language`) для быстрого переключения языка интерфейса в один клик.
+  - Команда `/city`: просмотр текущего сохранённого населённого пункта с кнопкой быстрой смены.
+  - Команда `/lang` (`/language`): быстрое переключение языка интерфейса в один клик.
+  - Команда `/help`: локализованное справочное руководство по всем командам бота.
   - Защита групповых чатов от спама и перехвата сообщений: FSM-состояние не вешается на общий чат, пользователю предлагается понятная подсказка с синтаксисом.
   - Автоматическая регистрация команд в меню Telegram (`set_my_commands`) для удобных подсказок при вводе `/`.
+- **Высокие стандарты качества и CI/CD**:
+  - Строгий статический анализ кода через линтер **Ruff** (Python 3.12, правила `E`, `W`, `F`, `I`, `B`, `UP`).
+  - Автоматизированный CI-пайплайн на **GitHub Actions** (`.github/workflows/tests.yml`) с проверкой каждого push и pull request.
 
 ---
 
@@ -178,6 +185,8 @@
 | **python-dotenv 1.0.1** | Загрузка конфигурации из файла `.env` |
 | **tzdata** | Пакет актуальных данных часовых поясов IANA |
 | **pytest / pytest-asyncio** | Фреймворк асинхронного модульного тестирования |
+| **Ruff 0.6+** | Молниеносный линтер и форматтер Python-кода |
+| **GitHub Actions** | Автоматизированный CI-пайплайн тестирования и линтинга |
 | **Docker / Docker Compose** | Контейнеризация и управление развёртыванием приложения |
 
 ---
@@ -186,6 +195,9 @@
 
 ```text
 prognoz/
+├── .github/
+│   └── workflows/
+│       └── tests.yml          # CI-пайплайн GitHub Actions (Ruff + pytest)
 ├── config/                    # Шаблоны конфигураций
 ├── data/                      # Каталог для файла базы данных SQLite (монтируется в Docker)
 ├── docs/                      # Документация проекта
@@ -198,7 +210,8 @@ prognoz/
 │       ├── database/
 │       │   └── database.py    # Инициализация SQLite, схема таблицы users и CRUD-методы
 │       ├── handlers/
-│       │   ├── start.py       # Хэндлеры /start, /pogoda, /lang, выбор языка и ввод города
+│       │   ├── start.py       # Онбординг (/start), выбор языка (/lang) и FSM-ввод города
+│       │   ├── weather.py     # Погодные команды (/weather, /pogoda), /city и /help
 │       │   └── callbacks.py   # Обработка inline-кнопок (дни, сводка, периоды суток, обновление)
 │       ├── keyboards/
 │       │   └── weather.py     # Фабрики inline-клавиатур (меню, выбор языка, список сёл, периоды)
@@ -214,21 +227,25 @@ prognoz/
 │       └── config.py          # Чтение переменных окружения (.env) и пути директорий
 ├── tests/                     # Автоматизированные тесты
 │   ├── conftest.py            # Настройка sys.path для pytest
+│   ├── test_database.py       # Тесты SQLite схемы, миграций и отсутствия дубликатов
 │   ├── test_dates.py          # Тесты смещений дат и часовых поясов
 │   ├── test_formatters.py     # Тесты форматирования сообщений и генерации клавиатур
 │   ├── test_geocoding.py      # Тесты очистки приставок, парсинга регионов, «е/ё» и ранжирования
-│   ├── test_handlers.py       # Тесты FSM-диалога поиска, выбора вариантов и callback-вызовов
+│   ├── test_handlers.py       # Тесты FSM-диалога, команд /city, /help, callback-вызовов и защиты
 │   ├── test_i18n.py           # Тесты локализации (RU/EN), первого запуска и переключения языка
-│   └── test_weather_codes.py  # Тесты маппинга погодных кодов WMO и направлений ветра
+│   ├── test_weather_codes.py  # Тесты маппинга погодных кодов WMO и направлений ветра
+│   └── test_weather_service.py # Тесты таймаутов, ошибок сети/500, битого JSON и TTL-кэша
 ├── .dockerignore              # Исключения файлов для сборки Docker-образа
 ├── .env.example               # Шаблон файла конфигурации окружения
 ├── .gitignore                 # Исключения версионирования Git
-├── Dockerfile                 # Multi-stage Docker-образ на базе python:3.12-slim
+├── Dockerfile                 # Легковесный Docker-образ на базе python:3.12-slim
 ├── docker-compose.yml         # Манифест Docker Compose с именованным томом для SQLite
 ├── LICENSE                    # Лицензия проекта (MIT)
 ├── main.py                    # Корневой фасад точки входа
+├── pyproject.toml             # Конфигурация линтера и форматтера Ruff (Python 3.12)
 ├── pytest.ini                 # Конфигурация запуска pytest
-└── requirements.txt           # Зафиксированные версии зависимостей проекта
+├── requirements.txt           # Зафиксированные версии основных зависимостей
+└── requirements-dev.txt       # Зависимости для тестирования и разработки (ruff, pytest)
 ```
 
 ---
@@ -256,6 +273,7 @@ cd tg-bot-prognoz
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Для разработки, линтинга и тестов
 ```
 
 **На Windows (PowerShell):**
@@ -263,6 +281,7 @@ pip install -r requirements.txt
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Для разработки, линтинга и тестов
 ```
 
 ### 3. Настройка переменных окружения
@@ -483,9 +502,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 ---
 
-## 🧪 Тестирование
+## 🧪 Тестирование и качество кода
 
-Проект покрыт набором из **45 автоматизированных тестов**, проверяющих всю бизнес-логику без необходимости отправки реальных сетевых запросов.
+Проект покрыт набором из **59 автоматизированных тестов**, проверяющих всю бизнес-логику, краевые состояния внешних API и базу данных без необходимости отправки реальных сетевых запросов.
 
 ### Запуск тестов через `pytest` (рекомендуется)
 
@@ -499,20 +518,38 @@ python -m pytest
 python scripts/run_tests.py
 ```
 
+### Проверка стиля и линтинг (`Ruff`)
+
+В проекте настроен сверхбыстрый линтер **Ruff** (конфигурация в `pyproject.toml`, целевая версия Python 3.12, базовые правила `E`, `W`, `F`, `I`, `B`, `UP`):
+
+```bash
+# Проверка качества кода
+ruff check .
+
+# Автоматическое форматирование и исправление безопасных замечаний
+ruff check --fix .
+```
+
+### Автоматический CI-пайплайн (GitHub Actions)
+
+В репозиторий встроен воркфлоу [`.github/workflows/tests.yml`](.github/workflows/tests.yml), который автоматически выполняет установку окружения, линтинг через `ruff check .` и запуск тестов `pytest` при каждом push и pull request в ветки `main` и `master`.
+
 ### Структура тестов
 
 - [`tests/test_dates.py`](tests/test_dates.py): корректность загрузки часовых поясов IANA через `zoneinfo`, расчёт относительных дат (`offset: -1, 0, 1, 2`) и названий дней на русском и английском языках.
 - [`tests/test_weather_codes.py`](tests/test_weather_codes.py): соответствие кодов Всемирной метеорологической организации (WMO) русскоязычным и англоязычным описаниям и эмодзи, конвертация углов в 16-румбовую розу ветров (`С`, `СВ`, `Ю`, `ЗСЗ` / `N`, `NE`, `S`, `WNW` и др.).
 - [`tests/test_formatters.py`](tests/test_formatters.py): проверка функций `fmt_temp_range` и `fmt_temp_c`, суточного диапазона температур (`+min...+max°C`), блока «Сейчас» для дня «Сегодня», сводки для остальных дней, компактного моноширинного вывода для экранов 320–375px и генерации клавиатур на RU/EN.
 - [`tests/test_i18n.py`](tests/test_i18n.py): тесты словаря локализации, первого запуска с выбором языка, смены языка интерфейса существующим пользователем и корректности отображения прогнозов на английском языке.
-- [`tests/test_geocoding.py`](tests/test_geocoding.py): разбор префиксов типов поселений (`деревня`, `село`, `пгт`, `хутор`, `ст-ца` и др.), выделение региона из круглых/квадратных скобок или запятых, приоритезация населённых пунктов стран СНГ по численности населения, мокированные и интеграционные тесты геокодинга с поддержкой `ru`/`en`.
-- [`tests/test_handlers.py`](tests/test_handlers.py): тестирование команд `/start` и `/pogoda` (с городом, без города, в личных и групповых чатах), FSM-состояния `CityStates.waiting_for_city`, безопасного парсинга `callback_data` (устойчивость к `day:abc`, `refresh:xyz`, `sel_city:not_int` с показом alert-уведомлений), и безопасной обработки ошибок без утечки `str(e)`.
+- [`tests/test_geocoding.py`](tests/test_geocoding.py): разбор префиксов типов поселений (`деревня`, `село`, `пгт`, `хутор`, `ст-ца` и др.), выделение региона из круглых/квадратных скобок или запятых, приоритезация населённых пунктов стран СНГ по численности населения, мокированные и интеграционные тесты геокодинга с поддержкой «е/ё» (Королёв) и `ru`/`en`.
+- [`tests/test_weather_service.py`](tests/test_weather_service.py): тестирование сетевых таймаутов (`httpx.ConnectTimeout`), ошибок сервера HTTP 500, пустого/битого ответа API, работы in-memory TTL-кэша и принудительного обновления через `force_refresh=True`.
+- [`tests/test_database.py`](tests/test_database.py): создание схемы таблицы `users`, миграция колонки `language` в `init_db()`, регистрация нового пользователя, обновление города и смена языка без дублирования записей в SQLite (`COUNT(*) == 1`).
+- [`tests/test_handlers.py`](tests/test_handlers.py): тестирование команд `/start`, `/pogoda`, `/weather`, `/city`, `/help` (с городом, без города, в личных и групповых чатах), FSM-состояния `CityStates.waiting_for_city`, безопасного парсинга `callback_data` (устойчивость к `day:abc`, `refresh:xyz`, `sel_city:not_int` с показом alert-уведомлений), и безопасной обработки ошибок без утечки `str(e)`.
 
 ---
 
 ## 🐳 Docker
 
-Сервис упакован в компактный Docker-образ на базе официального `python:3.12-slim`.
+Сервис упакован в легковесный Docker-образ на базе официального `python:3.12-slim` без лишних системных сборочных пакетов (вроде `build-essential`), с эффективным кэшированием слоёв зависимостей.
 
 ### Конфигурация Docker Compose
 

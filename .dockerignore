@@ -6,6 +6,7 @@
 !.env.example
 keys.txt
 *.txt
+!requirements.txt
 .venv
 venv
 ENV/

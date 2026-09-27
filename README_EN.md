@@ -2,7 +2,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-45%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-59%20passed-success.svg)](tests/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -85,13 +87,18 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
 - **Optimized SQLite Persistence**:
   - Asynchronous SQLite persistence (`aiosqlite`) storing user location, coordinates, timezone, and language.
   - Schema initialization and migrations centralized in `init_db()`, removing unnecessary `PRAGMA table_info` operations from CRUD queries.
-- **Commands `/weather`, `/pogoda`, and `/lang`**:
+- **Bot Commands (`/pogoda`, `/weather`, `/city`, `/lang`, `/help`)**:
   - Convenient bot invocation via `/weather` or `/pogoda` without needing to send `/start` in group chats.
   - Instant today's weather forecast for users with a saved location.
-  - Direct query support with city parameter: `/weather London`, `/pogoda Moscow`, `/weather New York`.
+  - Direct query support with city parameter: `/weather London`, `/pogoda Moscow`, `/pogoda пгт Шерегеш`.
+  - `/city` command: view currently saved settlement with a quick change button.
   - `/lang` (`/language`) command for instant language selection.
+  - `/help` command: localized reference guide for all bot commands.
   - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
   - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
+- **Quality Standards & CI/CD**:
+  - Strict static code analysis with **Ruff** linter (Python 3.12, rules `E`, `W`, `F`, `I`, `B`, `UP`).
+  - Automated CI pipeline on **GitHub Actions** (`.github/workflows/tests.yml`) validating every push and pull request.
 
 ---
 
@@ -177,6 +184,8 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 | **python-dotenv 1.0.1** | Environment variable loading from `.env` |
 | **tzdata** | IANA time zone database package |
 | **pytest / pytest-asyncio** | Async unit testing framework |
+| **Ruff 0.6+** | Fast linter & code formatter (Python 3.12, PEP 8) |
+| **GitHub Actions** | Automated CI pipeline (linting & test verification) |
 | **Docker / Docker Compose** | Containerization and deployment management |
 
 ---
@@ -185,6 +194,9 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 
 ```text
 prognoz/
+├── .github/
+│   └── workflows/
+│       └── tests.yml          # GitHub Actions CI workflow (Ruff + Pytest)
 ├── config/                    # Configuration templates
 ├── data/                      # Directory for SQLite database file (mounted in Docker)
 ├── docs/                      # Project documentation
@@ -197,7 +209,8 @@ prognoz/
 │       ├── database/
 │       │   └── database.py    # SQLite initialization, users table schema & CRUD methods
 │       ├── handlers/
-│       │   ├── start.py       # /start, /pogoda, /weather & /lang handlers, language selection & city input
+│       │   ├── start.py       # Onboarding (/start), language selection (/lang) & city input FSM
+│       │   ├── weather.py     # Weather commands (/weather, /pogoda), /city and /help
 │       │   └── callbacks.py   # Inline button handlers (days, periods, refresh, language)
 │       ├── keyboards/
 │       │   └── weather.py     # Inline keyboard factories (menu, language picker, periods)
@@ -211,25 +224,29 @@ prognoz/
 │       │   ├── logger.py      # Console logger & file logger configuration
 │       │   └── weather_codes.py # WMO code mapping & wind compass calculations (RU / EN)
 │       └── config.py          # Environment settings loader
-├── tests/                     # Automated unit test suite
+├── tests/                     # Automated unit test suite (59 tests)
 │   ├── conftest.py            # sys.path configuration for pytest
+│   ├── test_database.py       # SQLite schema, migration and CRUD operations
 │   ├── test_dates.py          # Date offset and timezone tests
 │   ├── test_formatters.py     # Message formatting & inline keyboard tests
 │   ├── test_geocoding.py      # Prefix stripping, region parsing, and ranking tests
-│   ├── test_handlers.py       # FSM state and callback handler tests
+│   ├── test_handlers.py       # Commands (/start, /weather, /city, /help), FSM & callbacks
 │   ├── test_i18n.py           # Language selection, first launch and English forecast tests
-│   └── test_weather_codes.py  # WMO weather code and wind direction tests
+│   ├── test_weather_codes.py  # WMO weather code and wind direction tests
+│   └── test_weather_service.py # Timeout, HTTP errors, corrupt JSON & TTL caching tests
 ├── .dockerignore              # Docker build exclusion rules
 ├── .env.example               # Environment variables template
 ├── .gitignore                 # Git ignore rules
-├── Dockerfile                 # Multi-stage Docker image based on python:3.12-slim
+├── Dockerfile                 # Lightweight Docker image based on python:3.12-slim
 ├── docker-compose.yml         # Docker Compose manifest with named volume for SQLite
 ├── LICENSE                    # MIT License file
 ├── README.md                  # Russian documentation
 ├── README_EN.md               # English documentation (this file)
 ├── main.py                    # Root entrypoint facade
+├── pyproject.toml             # Ruff linter and formatter configuration (Python 3.12)
 ├── pytest.ini                 # Pytest runner configuration
-└── requirements.txt           # Pinned dependency requirements
+├── requirements.txt           # Pinned production dependency requirements
+└── requirements-dev.txt       # Development & testing dependencies (ruff, pytest)
 ```
 
 ---
@@ -257,6 +274,7 @@ cd tg-bot-prognoz
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # For development, linting, and testing
 ```
 
 **On Windows (PowerShell):**
@@ -264,6 +282,7 @@ pip install -r requirements.txt
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # For development, linting, and testing
 ```
 
 ### 3. Environment Configuration
@@ -475,36 +494,54 @@ CREATE TABLE IF NOT EXISTS users (
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Code Quality
 
-The repository features **45 automated unit tests** covering all core business logic without sending live HTTP requests.
+The repository features **59 automated unit tests** covering all core business logic, API failure modes, SQLite operations, and edge cases without sending live HTTP requests.
 
-### Run tests with `pytest`:
+### Run tests with `pytest` (Recommended)
 
 ```bash
 python -m pytest
 ```
 
-### Run tests with `unittest`:
+### Run tests with `unittest`
 
 ```bash
 python scripts/run_tests.py
 ```
 
+### Code Style & Linting (`Ruff`)
+
+The project uses the ultra-fast Python linter and formatter **Ruff** (configured in `pyproject.toml`, targeted for Python 3.12, enforcing rules `E`, `W`, `F`, `I`, `B`, `UP`):
+
+```bash
+# Code style and quality check
+ruff check .
+
+# Safe automated fixes
+ruff check --fix .
+```
+
+### Automated CI Pipeline (GitHub Actions)
+
+A pre-configured GitHub Actions workflow ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) automatically runs environment setup, `ruff check .`, and `pytest` on every push and pull request to the `main` and `master` branches.
+
 ### Test Suite Structure
 
-- [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and date calculations for Russian and English.
+- [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and relative date calculations for Russian and English.
 - [`tests/test_weather_codes.py`](tests/test_weather_codes.py): WMO weather codes and 16-point wind compass calculations (RU / EN).
 - [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with temperature ranges (`+min...+max°C`), Today's real-time conditions block, compact mobile layouts (320–375px), and country deduplication.
 - [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, and English output tests.
-- [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, and multi-language geocoding.
-- [`tests/test_handlers.py`](tests/test_handlers.py): FSM state handling, /start, /pogoda, resilient `callback_data` validation (handling `day:abc`, `refresh:xyz`, `sel_city:not_int` with alerts), and safe error handling without raw exception leakage.
+- [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, «е/ё» equivalence (e.g. Королёв), CIS prioritization, and multi-language geocoding.
+- [`tests/test_weather_service.py`](tests/test_weather_service.py): Network timeouts (`httpx.ConnectTimeout`), HTTP 500 server errors, malformed/empty JSON response handling, in-memory TTL caching, and cache invalidation via `force_refresh=True`.
+- [`tests/test_database.py`](tests/test_database.py): SQLite schema initialization, language column migration in `init_db()`, user registration, city updates, and zero duplicate records in SQLite (`COUNT(*) == 1`).
+- [`tests/test_handlers.py`](tests/test_handlers.py): Commands `/start`, `/pogoda`, `/weather`, `/city`, `/help` (with/without city, in private/group chats), FSM state handling, resilient `callback_data` validation, and safe error handling without raw exception leakage.
 
 ---
 
 ## 🐳 Docker Support
 
-The application is containerized using `python:3.12-slim`.
+The application is packaged into a lightweight Docker image based on official `python:3.12-slim` without heavy build dependencies (`build-essential`), utilizing optimized layer caching.
 
 | Action | Command |
 |---|---|

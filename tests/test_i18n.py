@@ -1,32 +1,24 @@
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
-from aiogram.types import Message, CallbackQuery, User, Chat
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.fsm.storage.base import StorageKey
 
-from src.app.utils.i18n import t
-from src.app.utils.dates import format_date, get_day_title
-from src.app.utils.weather_codes import get_weather_info, get_wind_direction
-from src.app.utils.formatters import (
-    format_daily_weather,
-    format_hourly_weather,
-    fmt_temp
-)
+import pytest
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import CallbackQuery, Chat, Message, User
+
+from src.app.handlers.start import CityStates, cb_set_language, cmd_language, cmd_start
 from src.app.keyboards.weather import (
-    get_main_menu_keyboard,
     get_day_forecast_keyboard,
     get_details_keyboard,
-    get_language_keyboard
+    get_language_keyboard,
+    get_main_menu_keyboard,
 )
-from src.app.handlers.start import (
-    cmd_start,
-    cmd_language,
-    cb_set_language,
-    cb_change_language,
-    CityStates
-)
+from src.app.utils.dates import format_date, get_day_title
+from src.app.utils.formatters import fmt_temp, format_daily_weather, format_hourly_weather
+from src.app.utils.i18n import t
+from src.app.utils.weather_codes import get_weather_info, get_wind_direction
+
 
 @pytest.fixture
 def fsm_context():

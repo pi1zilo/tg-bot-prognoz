@@ -1,6 +1,6 @@
 import re
+
 import httpx
-from typing import Optional
 
 # Prefixes for different settlement types (villages, hamlets, towns, etc.)
 PREFIX_PAT = (
@@ -10,7 +10,7 @@ PREFIX_PAT = (
     r'|^(?:д|с|п|г|х|м|ст)\s+'
 )
 
-def parse_settlement_query(raw_query: str) -> tuple[str, Optional[str]]:
+def parse_settlement_query(raw_query: str) -> tuple[str, str | None]:
     """
     Parses a user input like 'деревня Простоквашино' or 'Константиново, Рязанская область'
     into (clean_name, region_hint).
@@ -117,7 +117,7 @@ async def search_settlements(query: str, max_results: int = 5, lang: str = "ru")
                     results = raw_results
                     break
             except httpx.HTTPError as e:
-                raise RuntimeError(f"Ошибка соединения с сервисом геокодирования: {e}")
+                raise RuntimeError(f"Ошибка соединения с сервисом геокодирования: {e}") from e
 
     if not results:
         return []

@@ -1,4 +1,4 @@
 """Telegram event handlers."""
-from src.app.handlers import start, callbacks
+from src.app.handlers import callbacks, start, weather
 
-__all__ = ["start", "callbacks"]
+__all__ = ["callbacks", "start", "weather"]

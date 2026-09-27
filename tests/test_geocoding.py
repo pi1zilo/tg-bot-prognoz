@@ -1,14 +1,16 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from src.app.services.geocoding import (
-    parse_settlement_query,
-    format_short_display,
     format_full_display,
-    search_settlements,
+    format_short_display,
     get_city_geocoding,
+    parse_settlement_query,
+    search_settlements,
 )
+
 
 class TestGeocodingParsing(unittest.TestCase):
     def test_parse_prefixes(self):
@@ -207,5 +209,134 @@ async def test_get_city_geocoding_not_found():
         with pytest.raises(ValueError):
             await get_city_geocoding("НесуществующееПоселение123456789")
 
+@pytest.mark.asyncio
+async def test_search_settlements_yo_vs_e_korolev():
+    # Simulate API returning empty for 'Королев', but returning results when fallback queries 'Королёв'
+    mock_payload = {
+        "results": [
+            {
+                "id": 542420,
+                "name": "Королёв",
+                "latitude": 55.91,
+                "longitude": 37.82,
+                "timezone": "Europe/Moscow",
+                "country": "Россия",
+                "admin1": "Московская Область",
+                "population": 224000,
+            }
+        ]
+    }
+
+    async def mock_get(url, params=None, **kwargs):
+        name = (params or {}).get("name", "")
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.raise_for_status.return_value = None
+        if name == "Королёв":
+            resp.json.return_value = mock_payload
+        else:
+            resp.json.return_value = {"results": []}
+        return resp
+
+    with patch("httpx.AsyncClient.get", side_effect=mock_get):
+        # User entered 'Королев' with 'е'
+        results = await search_settlements("Королев")
+        assert len(results) == 1
+        assert results[0]["name"] == "Королёв"
+        assert "Московская" in results[0]["display_name"]
+
+
+@pytest.mark.asyncio
+async def test_search_settlement_with_type_and_region():
+    # User types 'с. Иваново' or 'Ивановка, Московская область'
+    clean1, hint1 = parse_settlement_query("с. Иваново")
+    assert clean1 == "Иваново"
+    assert hint1 is None
+
+    clean2, hint2 = parse_settlement_query("Ивановка, Московская область")
+    assert clean2 == "Ивановка"
+    assert hint2 == "Московская область"
+
+    clean3, hint3 = parse_settlement_query("поселок Ильинский")
+    assert clean3 == "Ильинский"
+    assert hint3 is None
+
+    mock_payload = {
+        "results": [
+            {
+                "id": 10,
+                "name": "Ивановка",
+                "latitude": 52.0,
+                "longitude": 39.0,
+                "timezone": "Europe/Moscow",
+                "country": "Россия",
+                "admin1": "Воронежская Область",
+                "population": 500,
+            },
+            {
+                "id": 20,
+                "name": "Ивановка",
+                "latitude": 55.5,
+                "longitude": 38.2,
+                "timezone": "Europe/Moscow",
+                "country": "Россия",
+                "admin1": "Московская Область",
+                "population": 800,
+            },
+        ]
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = mock_payload
+    mock_resp.raise_for_status.return_value = None
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+        res = await search_settlements("Ивановка, Московская область")
+        assert len(res) >= 1
+        assert "Московская" in res[0]["display_name"]
+
+
+@pytest.mark.asyncio
+async def test_megacity_and_cis_prioritization():
+    # Moscow USA vs Moscow Russia
+    mock_payload = {
+        "results": [
+            {
+                "id": 1,
+                "name": "Moscow",
+                "latitude": 46.73,
+                "longitude": -117.00,
+                "timezone": "America/Los_Angeles",
+                "country": "США",
+                "admin1": "Айдахо",
+                "population": 25000,
+            },
+            {
+                "id": 2,
+                "name": "Москва",
+                "latitude": 55.75,
+                "longitude": 37.61,
+                "timezone": "Europe/Moscow",
+                "country": "Россия",
+                "admin1": "Москва",
+                "population": 13000000,
+            },
+        ]
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = mock_payload
+    mock_resp.raise_for_status.return_value = None
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+        res = await search_settlements("Москва", lang="ru")
+        assert len(res) >= 1
+        assert res[0]["country"] == "Россия"
+        assert res[0]["name"] == "Москва"
+
+
 if __name__ == "__main__":
     unittest.main()
+

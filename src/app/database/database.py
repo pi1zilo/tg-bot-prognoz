@@ -1,5 +1,7 @@
 import aiosqlite
+
 from src.app.config import DB_PATH
+
 
 async def init_db() -> None:
     async with aiosqlite.connect(DB_PATH) as db:

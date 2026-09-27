@@ -82,7 +82,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "updating_details": "🔄 Обновляю подробный прогноз...",
         "data_updated": "Данные обновлены!",
         "details_already_current": "Подробный прогноз уже актуален!",
-        "details_updated": "Подробный прогноз обновлен!",
+        "help_message": (
+            "📖 <b>Справка по командам бота:</b>\n\n"
+            "• <code>/start</code> — Главное меню и выбор дня прогноза\n"
+            "• <code>/pogoda</code> или <code>/weather</code> — Погода на сегодня в сохраненном месте\n"
+            "• <code>/pogoda &lt;город&gt;</code> — Погода в указанном месте (например: <code>/pogoda Сочи</code>)\n"
+            "• <code>/city</code> — Просмотр или изменение текущего города\n"
+            "• <code>/lang</code> — Смена языка интерфейса (RU / EN)\n"
+            "• <code>/help</code> — Это справочное сообщение"
+        ),
+        "current_city_info": (
+            "📍 Текущее сохраненное место: <b>{city}</b>\n\n"
+            "Вы можете изменить его с помощью кнопки ниже или ввести:\n"
+            "👉 <code>/pogoda &lt;город&gt;</code>"
+        ),
         # Keyboard buttons
         "btn_yesterday": "🌅 Вчера",
         "btn_today": "☀️ Сегодня",
@@ -183,8 +196,20 @@ MESSAGES: dict[str, dict[str, str]] = {
         "updating_data": "🔄 Updating data...",
         "updating_details": "🔄 Updating detailed forecast...",
         "data_updated": "Data updated!",
-        "details_already_current": "Detailed forecast is already up to date!",
-        "details_updated": "Detailed forecast updated!",
+        "help_message": (
+            "📖 <b>Bot Commands Help:</b>\n\n"
+            "• <code>/start</code> — Main menu and forecast day selection\n"
+            "• <code>/weather</code> or <code>/pogoda</code> — Today's weather for your saved location\n"
+            "• <code>/weather &lt;city&gt;</code> — Weather for a specified location (e.g.: <code>/weather London</code>)\n"
+            "• <code>/city</code> — View or change saved location\n"
+            "• <code>/lang</code> — Switch interface language (RU / EN)\n"
+            "• <code>/help</code> — Show this help message"
+        ),
+        "current_city_info": (
+            "📍 Current saved location: <b>{city}</b>\n\n"
+            "You can change it using the button below or by using:\n"
+            "👉 <code>/weather &lt;city&gt;</code>"
+        ),
         # Keyboard buttons
         "btn_yesterday": "🌅 Yesterday",
         "btn_today": "☀️ Today",

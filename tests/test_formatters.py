@@ -1,14 +1,12 @@
+from src.app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard
 from src.app.utils.formatters import (
     clean_city_display,
     fmt_temp,
-    get_hour_icon,
     format_daily_weather,
-    format_summary_weather,
-    format_period_weather,
     format_hourly_weather,
-    PERIODS_CONFIG
+    get_hour_icon,
 )
-from src.app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard
+
 
 def test_clean_city_display():
     assert clean_city_display("Москва (Россия)") == "Москва"
@@ -76,7 +74,7 @@ def create_mock_weather():
 def test_format_summary_weather():
     weather = create_mock_weather()
     text = format_hourly_weather("Москва", 0, weather, period="summary")
-    
+
     assert "🔎 <b>Подробный прогноз на день</b>" in text
     assert "Москва" in text
     assert "Сегодня, 25 сентября" in text
@@ -134,7 +132,7 @@ def test_keyboards_details():
     assert "•" in day_btn.text
 
 def test_fmt_temp_range():
-    from src.app.utils.formatters import fmt_temp_range, fmt_temp_c
+    from src.app.utils.formatters import fmt_temp_c, fmt_temp_range
     assert fmt_temp_c(15) == "+15°C"
     assert fmt_temp_c(-3) == "-3°C"
     assert fmt_temp_c(0) == "0°C"

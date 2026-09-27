@@ -1,13 +1,14 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
+
 import pytest
-
-from aiogram.types import Message, CallbackQuery, User, Chat
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.base import StorageKey
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import CallbackQuery, Chat, Message, User
 
-from src.app.handlers.start import process_city_input, cb_select_city
+from src.app.handlers.start import cb_select_city, process_city_input
+
 
 @pytest.fixture
 def fsm_context():
@@ -21,11 +22,11 @@ async def test_process_city_input_single_village(fsm_context):
     message.from_user = User(id=1, is_bot=False, first_name="User")
     message.chat = Chat(id=1, type="private")
     message.text = "деревня Простоквашино"
-    
+
     mock_status_msg = AsyncMock(spec=Message)
     mock_status_msg.edit_text = AsyncMock()
     message.answer = AsyncMock(return_value=mock_status_msg)
-    
+
     mock_places = [
         {
             "name": "Простоквашино",
@@ -37,11 +38,11 @@ async def test_process_city_input_single_village(fsm_context):
             "country": "Россия"
         }
     ]
-    
+
     with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
          patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
         await process_city_input(message, fsm_context)
-        
+
         mock_save.assert_awaited_once_with(
             telegram_id=1,
             city="Простоквашино (Нижегородская Область, Россия)",
@@ -57,11 +58,11 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
     message.from_user = User(id=1, is_bot=False, first_name="User")
     message.chat = Chat(id=1, type="private")
     message.text = "Константиново"
-    
+
     mock_status_msg = AsyncMock(spec=Message)
     mock_status_msg.edit_text = AsyncMock()
     message.answer = AsyncMock(return_value=mock_status_msg)
-    
+
     mock_places = [
         {
             "name": "Константиново",
@@ -82,10 +83,10 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
             "country": "Россия"
         }
     ]
-    
+
     with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
         await process_city_input(message, fsm_context)
-        
+
         # Multiple places found: candidates stored in state, keyboard shown
         data = await fsm_context.get_data()
         assert "city_candidates" in data
@@ -169,7 +170,8 @@ async def test_cb_hourly_details():
 @pytest.mark.asyncio
 async def test_cmd_pogoda_with_saved_user(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda
+
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -186,7 +188,7 @@ async def test_cmd_pogoda_with_saved_user(fsm_context):
         "city": "Москва",
         "latitude": 55.75,
         "longitude": 37.61,
-        "timezone": "Europe/Moscow"
+        "timezone": "Europe/Moscow",
     }
     mock_weather = {
         "date_str": "27 сентября",
@@ -198,11 +200,13 @@ async def test_cmd_pogoda_with_saved_user(fsm_context):
         "wind_direction": "СЗ",
         "cloud_cover": 30,
         "weather_code": 1,
-        "hours": []
+        "hours": [],
     }
 
-    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value=mock_user), \
-         patch("src.app.handlers.start.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather):
+    with (
+        patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=mock_user),
+        patch("src.app.handlers.weather.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather),
+    ):
         await cmd_pogoda(message, command, fsm_context)
 
         message.answer.assert_awaited_once_with("⏳ Загружаю данные о погоде...")
@@ -214,7 +218,8 @@ async def test_cmd_pogoda_with_saved_user(fsm_context):
 @pytest.mark.asyncio
 async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda
+
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -250,9 +255,9 @@ async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
         "hours": []
     }
 
-    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
-         patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save, \
-         patch("src.app.handlers.start.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather) as mock_weather_call:
+    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
+         patch("src.app.handlers.weather.save_user", new_callable=AsyncMock) as mock_save, \
+         patch("src.app.handlers.weather.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather) as mock_weather_call:
         await cmd_pogoda(message, command, fsm_context)
 
         mock_save.assert_awaited_once_with(
@@ -276,7 +281,8 @@ async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
 @pytest.mark.asyncio
 async def test_cmd_pogoda_with_city_argument_multiple_matches(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda
+
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -309,7 +315,7 @@ async def test_cmd_pogoda_with_city_argument_multiple_matches(fsm_context):
         }
     ]
 
-    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
+    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places):
         await cmd_pogoda(message, command, fsm_context)
 
         data = await fsm_context.get_data()
@@ -322,7 +328,8 @@ async def test_cmd_pogoda_with_city_argument_multiple_matches(fsm_context):
 @pytest.mark.asyncio
 async def test_cmd_pogoda_city_not_found(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda
+
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -334,7 +341,7 @@ async def test_cmd_pogoda_city_not_found(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args="НесуществующееСело")
 
-    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=[]):
+    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=[]):
         await cmd_pogoda(message, command, fsm_context)
 
         mock_status_msg.edit_text.assert_awaited_once()
@@ -344,7 +351,8 @@ async def test_cmd_pogoda_city_not_found(fsm_context):
 @pytest.mark.asyncio
 async def test_cmd_pogoda_unsaved_user_in_group(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda
+
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -353,7 +361,7 @@ async def test_cmd_pogoda_unsaved_user_in_group(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args=None)
 
-    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value=None):
+    with patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
         await cmd_pogoda(message, command, fsm_context)
 
         # In group chats, shouldn't set FSM state
@@ -366,7 +374,9 @@ async def test_cmd_pogoda_unsaved_user_in_group(fsm_context):
 @pytest.mark.asyncio
 async def test_cmd_pogoda_unsaved_user_in_private(fsm_context):
     from aiogram.filters import CommandObject
-    from src.app.handlers.start import cmd_pogoda, CityStates
+
+    from src.app.handlers.start import CityStates
+    from src.app.handlers.weather import cmd_pogoda
 
     message = AsyncMock(spec=Message)
     message.from_user = User(id=1, is_bot=False, first_name="User")
@@ -375,7 +385,7 @@ async def test_cmd_pogoda_unsaved_user_in_private(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args=None)
 
-    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value=None):
+    with patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
         await cmd_pogoda(message, command, fsm_context)
 
         # In private chat, sets waiting_for_city state
@@ -426,7 +436,7 @@ async def test_cmd_start_saved_user(fsm_context):
 
 @pytest.mark.asyncio
 async def test_invalid_callbacks_safe_handling(fsm_context):
-    from src.app.handlers.callbacks import cb_day_forecast, cb_refresh_day, cb_hourly_details, cb_refresh_details
+    from src.app.handlers.callbacks import cb_day_forecast, cb_hourly_details, cb_refresh_day, cb_refresh_details
     from src.app.handlers.start import cb_select_city, cb_set_language
 
     user = User(id=1, is_bot=False, first_name="User")
@@ -540,7 +550,104 @@ async def test_weather_error_no_str_e_leak():
         assert secret_error_text not in sent_text
         assert "Не удалось обновить прогноз" in sent_text
 
+
+@pytest.mark.asyncio
+async def test_cmd_help_ru_and_en():
+    from src.app.handlers.weather import cmd_help
+
+    # RU user
+    msg_ru = AsyncMock(spec=Message)
+    msg_ru.from_user = User(id=1, is_bot=False, first_name="User")
+    msg_ru.answer = AsyncMock()
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"):
+        await cmd_help(msg_ru)
+        msg_ru.answer.assert_awaited_once()
+        text_ru = msg_ru.answer.call_args[0][0]
+        assert "Справка по командам бота" in text_ru
+        assert "/pogoda" in text_ru
+
+    # EN user
+    msg_en = AsyncMock(spec=Message)
+    msg_en.from_user = User(id=2, is_bot=False, first_name="UserEN")
+    msg_en.answer = AsyncMock()
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="en"):
+        await cmd_help(msg_en)
+        msg_en.answer.assert_awaited_once()
+        text_en = msg_en.answer.call_args[0][0]
+        assert "Bot Commands Help" in text_en
+        assert "/weather" in text_en
+
+
+@pytest.mark.asyncio
+async def test_cmd_city_with_saved_user(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_city
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.answer = AsyncMock()
+    cmd = CommandObject(prefix="/", command="city", args=None)
+
+    mock_user = {
+        "city": "Санкт-Петербург (Россия)",
+        "language": "ru"
+    }
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=mock_user):
+        await cmd_city(msg, cmd, fsm_context)
+        msg.answer.assert_awaited_once()
+        text = msg.answer.call_args[0][0]
+        assert "Санкт-Петербург" in text
+        assert "сохраненное место" in text
+
+
+@pytest.mark.asyncio
+async def test_cmd_city_without_saved_user(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.start import CityStates
+    from src.app.handlers.weather import cmd_city
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
+    msg.answer = AsyncMock()
+    cmd = CommandObject(prefix="/", command="city", args=None)
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
+        await cmd_city(msg, cmd, fsm_context)
+        assert await fsm_context.get_state() == CityStates.waiting_for_city.state
+        msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_cmd_pogoda_search_service_error(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_pogoda
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    status_msg = AsyncMock(spec=Message)
+    status_msg.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=status_msg)
+
+    cmd = CommandObject(prefix="/", command="pogoda", args="Самара")
+
+    with patch("src.app.handlers.weather.search_settlements", side_effect=RuntimeError("Geocoding down")):
+        await cmd_pogoda(msg, cmd, fsm_context)
+        status_msg.edit_text.assert_awaited_once()
+        text = status_msg.edit_text.call_args[0][0]
+        assert "Ошибка сервиса поиска" in text
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
