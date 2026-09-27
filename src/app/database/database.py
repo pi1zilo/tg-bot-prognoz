@@ -44,11 +44,6 @@ async def save_user(
     language: str | None = None
 ) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("PRAGMA table_info(users)") as cursor:
-            columns = [row[1] for row in await cursor.fetchall()]
-            if "language" not in columns:
-                await db.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'ru'")
-
         if language is None:
             async with db.execute("SELECT language FROM users WHERE telegram_id = ?", (telegram_id,)) as cursor:
                 row = await cursor.fetchone()
@@ -68,20 +63,12 @@ async def save_user(
 
 async def set_user_language(telegram_id: int, language: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("PRAGMA table_info(users)") as cursor:
-            columns = [row[1] for row in await cursor.fetchall()]
-            if "language" not in columns:
-                await db.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'ru'")
-
-        async with db.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (telegram_id,)) as cursor:
-            row = await cursor.fetchone()
-        if row:
-            await db.execute("UPDATE users SET language = ? WHERE telegram_id = ?", (language, telegram_id))
-        else:
-            await db.execute("""
-                INSERT INTO users (telegram_id, city, latitude, longitude, timezone, language)
-                VALUES (?, '', 0.0, 0.0, 'UTC', ?)
-            """, (telegram_id, language))
+        await db.execute("""
+            INSERT INTO users (telegram_id, city, latitude, longitude, timezone, language)
+            VALUES (?, '', 0.0, 0.0, 'UTC', ?)
+            ON CONFLICT(telegram_id) DO UPDATE SET
+                language = excluded.language
+        """, (telegram_id, language))
         await db.commit()
 
 async def get_user_language(telegram_id: int) -> str:

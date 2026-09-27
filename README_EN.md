@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-39%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-45%20passed-success.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -66,17 +66,25 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - `📅 Day After Tomorrow`: Forecast for 2 days ahead.
   - Automatic local time zone resolution (`timezone`) using standard `zoneinfo`.
 - **Two Granularity Levels (Mobile-First)**:
-  - **Daily Summary**: Compact single-line header (`📍 City · Date`), prominent status with rounded integer temperatures (`+13° (feels +11°)`), unified precipitation and wind lines.
+  - **Daily Summary**:
+    - For **«Today»**, displays a real-time current conditions block (`🌡 Now: +<temp>°C (Feels like: +<feels>°C)`) and daily range (`🌡 Today: +<min>...+<max>°C`).
+    - For **«Yesterday», «Tomorrow», «In 2 days»**, displays daily temperature range (`🌡 Temperature: +min...+max°C`) and apparent temperature range (`🤚 Feels like: +min...+max°C`).
+    - Aggregated metrics include precipitation total (mm), max precipitation probability (%), wind speed with gusts and direction, and cloud cover (%).
   - **Hourly Breakdown**: Optimized for narrow smartphone screens (320–375px), strictly 1 line per hour/interval without ugly line wraps, monospace time `<code>00:00</code>`, integer temperatures, and uncluttered wind and precipitation metrics.
 - **Historical Yesterday Archive**:
   - Integrated with Open-Meteo Historical Archive API to inspect real recorded weather for yesterday.
+- **Safe Error Handling & Callback Validation**:
+  - Zero leakage of raw exception text or `str(e)` to users; clean localized feedback on network or API failures.
+  - Full diagnostic technical logging in `logger.error` with `exc_info=True`.
+  - Resilient `callback_data` validation catching `ValueError` / `IndexError` and presenting alert notifications.
 - **In-Memory Caching & Performance**:
   - Built-in in-memory cache with a 5-minute Time-to-Live (TTL).
   - `[ 🔄 Refresh ]` button for manual cache invalidation and instant live data fetching.
   - Seamless message editing in Telegram to eliminate chat clutter.
   - `trust_env=False` HTTP client configuration to isolate from erroneous system proxies.
-- **Persistent User Storage**:
+- **Optimized SQLite Persistence**:
   - Asynchronous SQLite persistence (`aiosqlite`) storing user location, coordinates, timezone, and language.
+  - Schema initialization and migrations centralized in `init_db()`, removing unnecessary `PRAGMA table_info` operations from CRUD queries.
 - **Commands `/weather`, `/pogoda`, and `/lang`**:
   - Convenient bot invocation via `/weather` or `/pogoda` without needing to send `/start` in group chats.
   - Instant today's weather forecast for users with a saved location.
@@ -84,8 +92,6 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - `/lang` (`/language`) command for instant language selection.
   - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
   - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
-- **Robust Error Handling & Logging**:
-  - Clean console output and persistent stack traces saved to `logs/errors.log`.
 
 ---
 
@@ -105,10 +111,24 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 +-----------------------------------------------------------+
 | 📍 London · Today, September 27                           |
 |                                                           |
-| 🌤 +13° (feels +11°) · Mainly clear                       |
+| 🌤 Mainly clear                                           |
+| 🌡 Now: +13°C (Feels like: +11°C)                         |
+| 🌡 Today: +4...+16°C                                      |
 | 💧 Precipitation: 0% (0.0 mm)                             |
 | 💨 Wind: 4.8 m/s, SSE                                     |
 | ☁️ Cloud cover: 20%                                       |
+|                                                           |
+| [ 🔎 Details ]                                            |
+| [ ◀️ Back ]                  [ 🔄 Refresh ]               |
++-----------------------------------------------------------+
+| 📍 London · Tomorrow, September 28                        |
+|                                                           |
+| ☀️ Clear sky                                              |
+| 🌡 Temperature: +4...+16°C                                |
+| 🤚 Feels like: +3...+14°C                                 |
+| 💧 Precipitation: 0% (0.0 mm)                             |
+| 💨 Wind: 3.5 m/s, S                                       |
+| ☁️ Cloud cover: 15%                                       |
 |                                                           |
 | [ 🔎 Details ]                                            |
 | [ ◀️ Back ]                  [ 🔄 Refresh ]               |
@@ -457,7 +477,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Testing
 
-The repository features **41 automated unit tests** covering all core business logic without sending live HTTP requests.
+The repository features **45 automated unit tests** covering all core business logic without sending live HTTP requests.
 
 ### Run tests with `pytest`:
 
@@ -475,11 +495,10 @@ python scripts/run_tests.py
 
 - [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and date calculations for Russian and English.
 - [`tests/test_weather_codes.py`](tests/test_weather_codes.py): WMO weather codes and 16-point wind compass calculations (RU / EN).
-- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with compact mobile layouts (320–375px), integer degree rounding, and country deduplication.
-
+- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with temperature ranges (`+min...+max°C`), Today's real-time conditions block, compact mobile layouts (320–375px), and country deduplication.
 - [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, and English output tests.
 - [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, and multi-language geocoding.
-- [`tests/test_handlers.py`](tests/test_handlers.py): FSM state handling, /start, /pogoda, and callback flows.
+- [`tests/test_handlers.py`](tests/test_handlers.py): FSM state handling, /start, /pogoda, resilient `callback_data` validation (handling `day:abc`, `refresh:xyz`, `sel_city:not_int` with alerts), and safe error handling without raw exception leakage.
 
 ---
 

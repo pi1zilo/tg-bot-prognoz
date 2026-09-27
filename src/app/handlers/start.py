@@ -81,7 +81,13 @@ async def cb_change_language(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("set_lang:"))
 async def cb_set_language(callback: CallbackQuery, state: FSMContext):
-    lang = callback.data.split(":")[1]
+    parts = callback.data.split(":")
+    if len(parts) < 2 or parts[1] not in ("ru", "en"):
+        logging.warning(f"Invalid set_lang callback data from user {callback.from_user.id}: {callback.data}")
+        await callback.answer(t("invalid_action", "ru"), show_alert=True)
+        return
+
+    lang = parts[1]
     user_id = callback.from_user.id
     await set_user_language(user_id, lang)
     await state.update_data(language=lang)
@@ -274,7 +280,14 @@ async def process_city_input(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("sel_city:"))
 async def cb_select_city(callback: CallbackQuery, state: FSMContext):
     user_lang = await get_user_language(callback.from_user.id)
-    idx = int(callback.data.split(":")[1])
+    try:
+        parts = callback.data.split(":")
+        idx = int(parts[1])
+    except (IndexError, ValueError):
+        logging.warning(f"Invalid sel_city callback data from user {callback.from_user.id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
     data = await state.get_data()
     candidates = data.get("city_candidates", [])
     

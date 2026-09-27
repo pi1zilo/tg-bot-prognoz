@@ -133,15 +133,38 @@ def test_keyboards_details():
     day_btn = [btn for btn in d_buttons_day if btn.callback_data == "details:0:day"][0]
     assert "•" in day_btn.text
 
-def test_format_daily_weather_compact():
+def test_fmt_temp_range():
+    from src.app.utils.formatters import fmt_temp_range, fmt_temp_c
+    assert fmt_temp_c(15) == "+15°C"
+    assert fmt_temp_c(-3) == "-3°C"
+    assert fmt_temp_c(0) == "0°C"
+    assert fmt_temp_range(4, 16) == "+4...+16°C"
+    assert fmt_temp_range(-5, -1) == "-5...-1°C"
+    assert fmt_temp_range(-2, 3) == "-2...+3°C"
+    assert fmt_temp_range(15, 15) == "+15°C"
+    assert fmt_temp_range(16, 4) == "+4...+16°C"
+
+def test_format_daily_weather_today():
     weather = create_mock_weather()
     text = format_daily_weather("Москва (Россия)", 0, weather, lang="ru")
     lines = text.split("\n")
     # Single-line compact header without duplicate country
     assert lines[0] == "📍 <b>Москва</b> · Сегодня, 25 сентября"
-    # No temperature/wind words, prominent status & compact apparent temp
-    assert "+12°" in text
-    assert "(ощ. +11°)" in text
+    # Today includes "Сейчас" and "За день"
+    assert "🌡 Сейчас: +12°C (Ощущается: +11°C)" in text
+    assert "🌡 За день: +4...+16°C" in text
+    assert "💧 Осадки: 60% (0.5 мм)" in text
+    assert "💨 Ветер: 3.5 м/с, В" in text
+    assert "☁️ Облачность: 40%" in text
+
+def test_format_daily_weather_other_day():
+    weather = create_mock_weather()
+    text = format_daily_weather("Москва (Россия)", 1, weather, lang="ru")
+    # Tomorrow does NOT include "Сейчас" block
+    assert "Сейчас:" not in text
+    # Includes day temperature range and feels like range
+    assert "🌡 Температура: +4...+16°C" in text
+    assert "🤚 Ощущается: +3...+14°C" in text
     assert "💧 Осадки: 60% (0.5 мм)" in text
     assert "💨 Ветер: 3.5 м/с, В" in text
     assert "☁️ Облачность: 40%" in text

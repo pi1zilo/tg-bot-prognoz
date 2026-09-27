@@ -424,6 +424,122 @@ async def test_cmd_start_saved_user(fsm_context):
         text = message.answer.call_args[0][0]
         assert "Санкт-Петербург" in text
 
+@pytest.mark.asyncio
+async def test_invalid_callbacks_safe_handling(fsm_context):
+    from src.app.handlers.callbacks import cb_day_forecast, cb_refresh_day, cb_hourly_details, cb_refresh_details
+    from src.app.handlers.start import cb_select_city, cb_set_language
+
+    user = User(id=1, is_bot=False, first_name="User")
+
+    # 1. day:abc
+    cb1 = AsyncMock(spec=CallbackQuery)
+    cb1.from_user = user
+    cb1.data = "day:abc"
+    cb1.answer = AsyncMock()
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value={"city": "Москва", "language": "ru"}):
+        await cb_day_forecast(cb1)
+        cb1.answer.assert_awaited_once()
+        assert cb1.answer.call_args[1].get("show_alert") is True
+        assert "Некорректное действие" in cb1.answer.call_args[0][0]
+
+    # 2. refresh:xyz
+    cb2 = AsyncMock(spec=CallbackQuery)
+    cb2.from_user = user
+    cb2.data = "refresh:xyz"
+    cb2.answer = AsyncMock()
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value={"city": "Москва", "language": "ru"}):
+        await cb_refresh_day(cb2)
+        cb2.answer.assert_awaited_once()
+        assert cb2.answer.call_args[1].get("show_alert") is True
+
+    # 3. details:not_int:summary
+    cb3 = AsyncMock(spec=CallbackQuery)
+    cb3.from_user = user
+    cb3.data = "details:not_int:summary"
+    cb3.answer = AsyncMock()
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value={"city": "Москва", "language": "ru"}):
+        await cb_hourly_details(cb3)
+        cb3.answer.assert_awaited_once()
+        assert cb3.answer.call_args[1].get("show_alert") is True
+
+    # 4. refresh_details:bad:summary
+    cb4 = AsyncMock(spec=CallbackQuery)
+    cb4.from_user = user
+    cb4.data = "refresh_details:bad:summary"
+    cb4.answer = AsyncMock()
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value={"city": "Москва", "language": "ru"}):
+        await cb_refresh_details(cb4)
+        cb4.answer.assert_awaited_once()
+        assert cb4.answer.call_args[1].get("show_alert") is True
+
+    # 5. sel_city:not_int
+    cb5 = AsyncMock(spec=CallbackQuery)
+    cb5.from_user = user
+    cb5.data = "sel_city:not_int"
+    cb5.answer = AsyncMock()
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"):
+        await cb_select_city(cb5, fsm_context)
+        cb5.answer.assert_awaited_once()
+        assert cb5.answer.call_args[1].get("show_alert") is True
+
+    # 6. set_lang:unknown
+    cb6 = AsyncMock(spec=CallbackQuery)
+    cb6.from_user = user
+    cb6.data = "set_lang:xyz_unknown"
+    cb6.answer = AsyncMock()
+    await cb_set_language(cb6, fsm_context)
+    cb6.answer.assert_awaited_once()
+    assert cb6.answer.call_args[1].get("show_alert") is True
+
+@pytest.mark.asyncio
+async def test_weather_error_no_str_e_leak():
+    from src.app.handlers.callbacks import cb_day_forecast, cb_refresh_day
+
+    user = User(id=1, is_bot=False, first_name="User")
+    mock_user = {
+        "city": "Москва",
+        "latitude": 55.75,
+        "longitude": 37.61,
+        "timezone": "Europe/Moscow",
+        "language": "ru"
+    }
+
+    # Test cb_day_forecast error handling
+    cb = AsyncMock(spec=CallbackQuery)
+    cb.from_user = user
+    cb.data = "day:0"
+    cb.message = AsyncMock(spec=Message)
+    cb.message.edit_text = AsyncMock()
+    cb.answer = AsyncMock()
+
+    secret_error_text = "INTERNAL_DB_TIMEOUT_AND_SECRET_KEY_123"
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value=mock_user), \
+         patch("src.app.handlers.callbacks.get_weather_for_day", side_effect=RuntimeError(secret_error_text)):
+        await cb_day_forecast(cb)
+
+        # Message must be edited with user-friendly error, NOT the raw exception
+        last_edit_call = cb.message.edit_text.call_args_list[-1]
+        sent_text = last_edit_call[0][0]
+        assert secret_error_text not in sent_text
+        assert "Не удалось получить прогноз" in sent_text
+
+    # Test cb_refresh_day error handling
+    cb_ref = AsyncMock(spec=CallbackQuery)
+    cb_ref.from_user = user
+    cb_ref.data = "refresh:0"
+    cb_ref.message = AsyncMock(spec=Message)
+    cb_ref.message.edit_text = AsyncMock()
+    cb_ref.answer = AsyncMock()
+
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value=mock_user), \
+         patch("src.app.handlers.callbacks.get_weather_for_day", side_effect=RuntimeError(secret_error_text)):
+        await cb_refresh_day(cb_ref)
+
+        last_edit_call = cb_ref.message.edit_text.call_args_list[-1]
+        sent_text = last_edit_call[0][0]
+        assert secret_error_text not in sent_text
+        assert "Не удалось обновить прогноз" in sent_text
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -1,9 +1,12 @@
+import logging
 import time
 import httpx
 from datetime import datetime
 from src.app.utils.dates import get_target_date, format_date_ru
 from src.app.utils.weather_codes import get_weather_info, get_wind_direction
 from src.app.utils.logger import log_error
+
+logger = logging.getLogger(__name__)
 
 # Simple in-memory cache: key -> (timestamp, data)
 _WEATHER_CACHE: dict[str, tuple[float, dict]] = {}
@@ -35,6 +38,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "latitude": latitude,
             "longitude": longitude,
             "hourly": "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+            "current": "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
             "timezone": timezone,
             "forecast_days": 7
         }
@@ -44,20 +48,31 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             response = await client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-        except httpx.HTTPError as e:
-            err_msg = f"Ошибка HTTP при запросе погоды ({url}, lat={latitude}, lon={longitude}, date={date_str}): {e}"
-            log_error(err_msg, e)
-            raise RuntimeError("Не удалось получить данные о погоде от Open-Meteo.")
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code if e.response else "N/A"
+            logger.error(
+                f"HTTP status error from Open-Meteo ({url}, status={status}, lat={latitude}, lon={longitude}, date={date_str}): {e}",
+                exc_info=True
+            )
+            raise RuntimeError("Не удалось получить данные о погоде от Open-Meteo.") from e
+        except httpx.RequestError as e:
+            logger.error(
+                f"Network request error from Open-Meteo ({url}, lat={latitude}, lon={longitude}, date={date_str}): {e}",
+                exc_info=True
+            )
+            raise RuntimeError("Не удалось связаться с сервером погоды Open-Meteo.") from e
         except Exception as e:
-            err_msg = f"Непредвиденная ошибка при запросе погоды: {e}"
-            log_error(err_msg, e)
-            raise RuntimeError("Ошибка при обработке запроса погоды.")
+            logger.error(
+                f"Unexpected error requesting weather ({url}, lat={latitude}, lon={longitude}, date={date_str}): {e}",
+                exc_info=True
+            )
+            raise RuntimeError("Ошибка при обработке запроса погоды.") from e
 
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
     
     if not times:
-        log_error(f"Open-Meteo вернул пустой список времени для lat={latitude}, lon={longitude}, date={date_str}, archive={is_archive}")
+        logger.error(f"Open-Meteo returned empty time list for lat={latitude}, lon={longitude}, date={date_str}, archive={is_archive}")
         raise ValueError("Нет данных о погоде на выбранную дату.")
 
     # Parse hourly data for the target date
@@ -115,15 +130,46 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         })
 
     if not hours_data:
-        log_error(f"Не найдены почасовые данные после фильтрации для даты {date_str} (lat={latitude}, lon={longitude})")
+        logger.error(f"No hourly data found after filtering for date {date_str} (lat={latitude}, lon={longitude})")
         raise ValueError("Не найдены почасовые данные для выбранной даты.")
 
-    # Calculate daily summary aggregates
-    avg_temp = sum(temps) / len(temps) if temps else 0.0
-    avg_app_temp = sum(apparent_temps) / len(apparent_temps) if apparent_temps else 0.0
+    # Calculate current weather block
+    current_data = None
+    if not is_archive and "current" in data:
+        c = data["current"]
+        current_data = {
+            "temperature": c.get("temperature_2m"),
+            "apparent_temperature": c.get("apparent_temperature"),
+            "precipitation": c.get("precipitation", 0.0),
+            "weather_code": c.get("weather_code", 0),
+            "cloud_cover": c.get("cloud_cover", 0),
+            "wind_speed": c.get("wind_speed_10m", 0.0),
+            "wind_direction": get_wind_direction(c.get("wind_direction_10m", 0)),
+            "wind_direction_deg": c.get("wind_direction_10m", 0),
+        }
+    elif not is_archive and hours_data:
+        curr_hour = datetime.now().hour
+        closest_h = min(hours_data, key=lambda h: abs(h["hour"] - curr_hour))
+        current_data = {
+            "temperature": closest_h["temperature"],
+            "apparent_temperature": closest_h["apparent_temperature"],
+            "precipitation": closest_h["precipitation"],
+            "weather_code": closest_h["weather_code"],
+            "cloud_cover": closest_h["cloud_cover"],
+            "wind_speed": closest_h["wind_speed"],
+            "wind_direction": get_wind_direction(closest_h["wind_direction"]),
+            "wind_direction_deg": closest_h["wind_direction"],
+        }
+
+    # Calculate daily summary aggregates (min/max ranges instead of average)
+    temp_min = min(temps) if temps else 0.0
+    temp_max = max(temps) if temps else 0.0
+    apparent_temp_min = min(apparent_temps) if apparent_temps else 0.0
+    apparent_temp_max = max(apparent_temps) if apparent_temps else 0.0
     total_precip = sum(precips) if precips else 0.0
     max_precip_prob = max(precip_probs) if precip_probs else 0
     avg_wind_speed = sum(wind_speeds) / len(wind_speeds) if wind_speeds else 0.0
+    max_wind_speed = max(wind_speeds) if wind_speeds else avg_wind_speed
     
     mid_idx = len(hours_data) // 2
     median_weather_code = hours_data[mid_idx]["weather_code"] if hours_data else 0
@@ -133,16 +179,23 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
     summary = {
         "date_str": format_date_ru(target_date),
         "target_date": target_date,
-        "temperature": round(avg_temp, 1),
-        "apparent_temperature": round(avg_app_temp, 1),
+        "temp_min": round(temp_min, 1),
+        "temp_max": round(temp_max, 1),
+        "apparent_temp_min": round(apparent_temp_min, 1),
+        "apparent_temp_max": round(apparent_temp_max, 1),
+        # Retain for backward compatibility with external references
+        "temperature": round(temp_max, 1),
+        "apparent_temperature": round(apparent_temp_max, 1),
         "precipitation_sum": round(total_precip, 1),
         "precipitation_probability": round(max_precip_prob),
         "wind_speed": round(avg_wind_speed, 1),
+        "max_wind_speed": round(max_wind_speed, 1),
         "wind_direction": get_wind_direction(median_wind_dir),
         "median_wind_dir_deg": median_wind_dir,
         "cloud_cover": round(avg_cloud_cover),
         "weather_code": median_weather_code,
-        "hours": hours_data
+        "hours": hours_data,
+        "current": current_data
     }
 
     _WEATHER_CACHE[cache_key] = (current_time, summary)

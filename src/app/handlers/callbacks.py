@@ -1,3 +1,4 @@
+import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
@@ -11,7 +12,15 @@ from src.app.keyboards.weather import (
 from src.app.utils.formatters import format_daily_weather, format_hourly_weather
 from src.app.utils.i18n import t
 
+logger = logging.getLogger(__name__)
 router = Router()
+
+def parse_callback_offset(data: str, index: int = 1) -> int | None:
+    try:
+        parts = data.split(":")
+        return int(parts[index])
+    except (IndexError, ValueError):
+        return None
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
@@ -35,12 +44,17 @@ async def cb_day_forecast(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
     user_lang = user.get("language", "ru") if user else "ru"
+
+    offset = parse_callback_offset(callback.data, 1)
+    if offset is None:
+        logger.warning(f"Invalid callback data in cb_day_forecast from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
     if not user or not user.get("city"):
         await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
-
-    offset = int(callback.data.split(":")[1])
     
     await callback.message.edit_text(t("loading_weather", user_lang))
 
@@ -52,8 +66,13 @@ async def cb_day_forecast(callback: CallbackQuery):
             offset=offset
         )
     except Exception as e:
+        coords = f"{user.get('latitude')},{user.get('longitude')}"
+        logger.error(
+            f"Failed to fetch weather forecast for user {user_id} (offset={offset}, coords={coords}): {e}",
+            exc_info=True
+        )
         await callback.message.edit_text(
-            t("weather_error", user_lang, error=str(e)),
+            t("weather_error", user_lang),
             reply_markup=get_main_menu_keyboard(user_lang)
         )
         await callback.answer()
@@ -70,18 +89,26 @@ async def cb_hourly_details(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
     user_lang = user.get("language", "ru") if user else "ru"
+
+    parts = callback.data.split(":")
+    if len(parts) < 2:
+        logger.warning(f"Invalid callback data in cb_hourly_details from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
+    try:
+        offset = int(parts[1])
+    except (IndexError, ValueError):
+        logger.warning(f"Invalid offset in cb_hourly_details from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
+    period = parts[2] if len(parts) > 2 else "summary"
+
     if not user or not user.get("city"):
         await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
-
-    parts = callback.data.split(":")
-    try:
-        offset = int(parts[1])
-    except (IndexError, ValueError):
-        offset = 0
-
-    period = parts[2] if len(parts) > 2 else "summary"
 
     try:
         weather = await get_weather_for_day(
@@ -91,8 +118,13 @@ async def cb_hourly_details(callback: CallbackQuery):
             offset=offset
         )
     except Exception as e:
+        coords = f"{user.get('latitude')},{user.get('longitude')}"
+        logger.error(
+            f"Failed to fetch hourly weather for user {user_id} (offset={offset}, coords={coords}): {e}",
+            exc_info=True
+        )
         await callback.message.edit_text(
-            t("weather_error", user_lang, error=str(e)),
+            t("weather_error", user_lang),
             reply_markup=get_day_forecast_keyboard(offset, lang=user_lang)
         )
         await callback.answer()
@@ -111,6 +143,7 @@ async def cb_hourly_details(callback: CallbackQuery):
         if "message is not modified" in str(e).lower():
             await callback.answer()
             return
+        logger.error(f"Error editing message in cb_hourly_details: {e}", exc_info=True)
         raise
 
     await callback.answer()
@@ -120,12 +153,18 @@ async def cb_refresh_day(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
     user_lang = user.get("language", "ru") if user else "ru"
+
+    offset = parse_callback_offset(callback.data, 1)
+    if offset is None:
+        logger.warning(f"Invalid callback data in cb_refresh_day from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
     if not user or not user.get("city"):
         await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
-    offset = int(callback.data.split(":")[1])
     await callback.message.edit_text(t("updating_data", user_lang))
 
     try:
@@ -137,8 +176,13 @@ async def cb_refresh_day(callback: CallbackQuery):
             force_refresh=True
         )
     except Exception as e:
+        coords = f"{user.get('latitude')},{user.get('longitude')}"
+        logger.error(
+            f"Failed to refresh weather for user {user_id} (offset={offset}, coords={coords}): {e}",
+            exc_info=True
+        )
         await callback.message.edit_text(
-            t("weather_refresh_error", user_lang, error=str(e)),
+            t("weather_refresh_error", user_lang),
             reply_markup=get_main_menu_keyboard(user_lang)
         )
         await callback.answer()
@@ -155,18 +199,27 @@ async def cb_refresh_details(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
     user_lang = user.get("language", "ru") if user else "ru"
+
+    parts = callback.data.split(":")
+    if len(parts) < 2:
+        logger.warning(f"Invalid callback data in cb_refresh_details from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
+    try:
+        offset = int(parts[1])
+    except (IndexError, ValueError):
+        logger.warning(f"Invalid offset in cb_refresh_details from user {user_id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
+    period = parts[2] if len(parts) > 2 else "summary"
+
     if not user or not user.get("city"):
         await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
-    parts = callback.data.split(":")
-    try:
-        offset = int(parts[1])
-    except (IndexError, ValueError):
-        offset = 0
-
-    period = parts[2] if len(parts) > 2 else "summary"
     await callback.message.edit_text(t("updating_details", user_lang))
 
     try:
@@ -178,8 +231,13 @@ async def cb_refresh_details(callback: CallbackQuery):
             force_refresh=True
         )
     except Exception as e:
+        coords = f"{user.get('latitude')},{user.get('longitude')}"
+        logger.error(
+            f"Failed to refresh detailed weather for user {user_id} (offset={offset}, period={period}, coords={coords}): {e}",
+            exc_info=True
+        )
         await callback.message.edit_text(
-            t("weather_refresh_error", user_lang, error=str(e)),
+            t("weather_refresh_error", user_lang),
             reply_markup=get_day_forecast_keyboard(offset, lang=user_lang)
         )
         await callback.answer()
@@ -197,6 +255,7 @@ async def cb_refresh_details(callback: CallbackQuery):
         if "message is not modified" in str(e).lower():
             await callback.answer(t("details_already_current", user_lang))
             return
+        logger.error(f"Error editing message in cb_refresh_details: {e}", exc_info=True)
         raise
 
     await callback.answer(t("details_updated", user_lang))

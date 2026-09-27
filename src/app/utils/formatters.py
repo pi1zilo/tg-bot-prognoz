@@ -94,20 +94,70 @@ def get_formatted_date(weather: dict, lang: str = "ru") -> str:
         return format_date(weather["target_date"], lang=lang)
     return weather.get("date_str", "")
 
+def fmt_temp_c(t: float | int | None, lang: str = "ru") -> str:
+    """Formats temperature with sign and °C, e.g. +15°C, -3°C, 0°C."""
+    if t is None:
+        return "N/A" if lang == "en" else "Н/Д"
+    val = int(round(t))
+    if val > 0:
+        return f"+{val}°C"
+    return f"{val}°C"
+
+def fmt_temp_range(t_min: float | int | None, t_max: float | int | None, lang: str = "ru") -> str:
+    """Formats temperature range with signs and °C, e.g. +10...+18°C or -2...+5°C."""
+    if t_min is None and t_max is None:
+        return "N/A" if lang == "en" else "Н/Д"
+    if t_min is None:
+        return fmt_temp_c(t_max, lang=lang)
+    if t_max is None:
+        return fmt_temp_c(t_min, lang=lang)
+
+    val_min = int(round(t_min))
+    val_max = int(round(t_max))
+
+    if val_min > val_max:
+        val_min, val_max = val_max, val_min
+
+    str_min = f"+{val_min}" if val_min > 0 else f"{val_min}"
+    str_max = f"+{val_max}" if val_max > 0 else f"{val_max}"
+
+    if val_min == val_max:
+        return f"{str_min}°C"
+    return f"{str_min}...{str_max}°C"
+
 def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:
     city_clean = clean_city_display(city)
     title_name = get_day_title(offset, lang=lang)
-    emoji, desc = get_weather_info(weather.get("weather_code", 0), lang=lang)
     date_str = get_formatted_date(weather, lang=lang)
-
-    wind_dir = get_wind_direction(weather.get("median_wind_dir_deg", weather.get("wind_direction")), lang=lang)
 
     date_header = f"{title_name}, {date_str}" if title_name else date_str
     header_line = f"📍 <b>{html.escape(city_clean)}</b> · {html.escape(date_header)}"
 
-    temp_val = fmt_temp(weather.get("temperature"), lang=lang, round_int=True)
-    app_val = fmt_temp(weather.get("apparent_temperature"), lang=lang, round_int=True)
+    # Determine day min/max temperature
+    temp_min = weather.get("temp_min")
+    temp_max = weather.get("temp_max")
+    if temp_min is None and temp_max is None:
+        if weather.get("hours"):
+            h_temps = [h["temperature"] for h in weather["hours"] if h.get("temperature") is not None]
+            if h_temps:
+                temp_min, temp_max = min(h_temps), max(h_temps)
+        if temp_min is None:
+            temp_min = weather.get("temperature")
+            temp_max = weather.get("temperature")
 
+    # Determine day min/max apparent temperature
+    app_min = weather.get("apparent_temp_min")
+    app_max = weather.get("apparent_temp_max")
+    if app_min is None and app_max is None:
+        if weather.get("hours"):
+            h_apps = [h["apparent_temperature"] for h in weather["hours"] if h.get("apparent_temperature") is not None]
+            if h_apps:
+                app_min, app_max = min(h_apps), max(h_apps)
+        if app_min is None:
+            app_min = weather.get("apparent_temperature")
+            app_max = weather.get("apparent_temperature")
+
+    # Precipitation
     precip_prob = weather.get("precipitation_probability", 0)
     precip_sum = weather.get("precipitation_sum", 0.0)
     if isinstance(precip_sum, (int, float)):
@@ -115,36 +165,130 @@ def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru"
     else:
         precip_sum_str = str(precip_sum)
 
+    # Wind
     wind_spd = weather.get("wind_speed", 0.0)
+    max_wind = weather.get("max_wind_speed")
     if isinstance(wind_spd, float):
         wind_spd_str = f"{wind_spd:.1f}" if wind_spd % 1 != 0 else str(int(wind_spd))
     else:
         wind_spd_str = str(wind_spd)
 
+    max_wind_str = ""
+    if max_wind is not None and isinstance(max_wind, (int, float)):
+        max_val = float(max_wind)
+        avg_val = float(wind_spd) if isinstance(wind_spd, (int, float)) else 0.0
+        if max_val > avg_val and (max_val - avg_val) >= 0.5:
+            max_wind_str = f"{max_val:.1f}" if max_val % 1 != 0 else str(int(max_val))
+
+    wind_dir = get_wind_direction(weather.get("median_wind_dir_deg", weather.get("wind_direction")), lang=lang)
+
+    # Cloud cover
     cloud_cover = weather.get("cloud_cover", 0)
 
-    if lang == "en":
-        feels_label = "feels"
-        wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "N/A" else ""
-        lines = [
-            header_line,
-            "",
-            f"{emoji} <b>{temp_val}°</b> ({feels_label} {app_val}°) · <b>{html.escape(desc)}</b>",
-            f"💧 Precipitation: {precip_prob}% ({precip_sum_str} mm)",
-            f"💨 Wind: {wind_spd_str} m/s{wind_dir_part}",
-            f"☁️ Cloud cover: {cloud_cover}%",
-        ]
+    # Weather description & icon
+    w_code = weather.get("weather_code", 0)
+
+    if offset == 0:
+        # Today: show current weather block first, then day range
+        current = weather.get("current")
+        if current:
+            now_temp = current.get("temperature")
+            now_feels = current.get("apparent_temperature")
+            now_w_code = current.get("weather_code", w_code)
+            emoji, desc = get_weather_info(now_w_code, lang=lang)
+        else:
+            now_temp = weather.get("temperature")
+            now_feels = weather.get("apparent_temperature")
+            emoji, desc = get_weather_info(w_code, lang=lang)
+
+        now_temp_str = fmt_temp_c(now_temp, lang=lang)
+        now_feels_str = fmt_temp_c(now_feels if now_feels is not None else now_temp, lang=lang)
+        day_range_str = fmt_temp_range(temp_min, temp_max, lang=lang)
+
+        if lang == "en":
+            wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "N/A" else ""
+            if max_wind_str:
+                wind_part = f"{wind_spd_str} m/s (up to {max_wind_str} m/s){wind_dir_part}"
+            else:
+                wind_part = f"{wind_spd_str} m/s{wind_dir_part}"
+
+            lines = [
+                header_line,
+                "",
+                f"{emoji} <b>{html.escape(desc)}</b>",
+                f"🌡 Now: {now_temp_str} (Feels like: {now_feels_str})",
+                f"🌡 Today: {day_range_str}",
+                f"💧 Precipitation: {precip_prob}% ({precip_sum_str} mm)",
+                f"💨 Wind: {wind_part}",
+                f"☁️ Cloud cover: {cloud_cover}%",
+            ]
+        else:
+            wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "Н/Д" else ""
+            if max_wind_str:
+                wind_part = f"{wind_spd_str} м/с (до {max_wind_str} м/с){wind_dir_part}"
+            else:
+                wind_part = f"{wind_spd_str} м/с{wind_dir_part}"
+
+            lines = [
+                header_line,
+                "",
+                f"{emoji} <b>{html.escape(desc)}</b>",
+                f"🌡 Сейчас: {now_temp_str} (Ощущается: {now_feels_str})",
+                f"🌡 За день: {day_range_str}",
+                f"💧 Осадки: {precip_prob}% ({precip_sum_str} мм)",
+                f"💨 Ветер: {wind_part}",
+                f"☁️ Облачность: {cloud_cover}%",
+            ]
     else:
-        feels_label = "ощ."
-        wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "Н/Д" else ""
-        lines = [
-            header_line,
-            "",
-            f"{emoji} <b>{temp_val}°</b> ({feels_label} {app_val}°) · <b>{html.escape(desc)}</b>",
-            f"💧 Осадки: {precip_prob}% ({precip_sum_str} мм)",
-            f"💨 Ветер: {wind_spd_str} м/с{wind_dir_part}",
-            f"☁️ Облачность: {cloud_cover}%",
-        ]
+        # Other days: Yesterday, Tomorrow, In 2 days
+        emoji, desc = get_weather_info(w_code, lang=lang)
+        day_range_str = fmt_temp_range(temp_min, temp_max, lang=lang)
+
+        if lang == "en":
+            wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "N/A" else ""
+            if max_wind_str:
+                wind_part = f"{wind_spd_str} m/s (up to {max_wind_str} m/s){wind_dir_part}"
+            else:
+                wind_part = f"{wind_spd_str} m/s{wind_dir_part}"
+
+            lines = [
+                header_line,
+                "",
+                f"{emoji} <b>{html.escape(desc)}</b>",
+                f"🌡 Temperature: {day_range_str}",
+            ]
+            if app_min is not None or app_max is not None:
+                app_range_str = fmt_temp_range(app_min, app_max, lang=lang)
+                lines.append(f"🤚 Feels like: {app_range_str}")
+
+            lines.extend([
+                f"💧 Precipitation: {precip_prob}% ({precip_sum_str} mm)",
+                f"💨 Wind: {wind_part}",
+                f"☁️ Cloud cover: {cloud_cover}%",
+            ])
+        else:
+            wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "Н/Д" else ""
+            if max_wind_str:
+                wind_part = f"{wind_spd_str} м/с (до {max_wind_str} м/с){wind_dir_part}"
+            else:
+                wind_part = f"{wind_spd_str} м/с{wind_dir_part}"
+
+            lines = [
+                header_line,
+                "",
+                f"{emoji} <b>{html.escape(desc)}</b>",
+                f"🌡 Температура: {day_range_str}",
+            ]
+            if app_min is not None or app_max is not None:
+                app_range_str = fmt_temp_range(app_min, app_max, lang=lang)
+                lines.append(f"🤚 Ощущается: {app_range_str}")
+
+            lines.extend([
+                f"💧 Осадки: {precip_prob}% ({precip_sum_str} мм)",
+                f"💨 Ветер: {wind_part}",
+                f"☁️ Облачность: {cloud_cover}%",
+            ])
+
     return "\n".join(lines)
 
 def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:

@@ -109,11 +109,16 @@ def test_formatters_english():
 
     daily_text = format_daily_weather("London", 0, weather, lang="en")
     assert "📍 <b>London</b> · Today, September 27" in daily_text
-    assert "+21°" in daily_text
+    assert "+21°C" in daily_text
     assert "Mainly clear" in daily_text
-    assert "feels +20°" in daily_text
+    assert "Feels like: +20°C" in daily_text
     assert "Wind: 4.5 m/s, NW" in daily_text
     assert "Precipitation: 15% (0.0 mm)" in daily_text
+
+    daily_text_tomorrow = format_daily_weather("London", 1, weather, lang="en")
+    assert "Now:" not in daily_text_tomorrow
+    assert "Temperature:" in daily_text_tomorrow
+    assert "Feels like:" in daily_text_tomorrow
 
     hourly_summary = format_hourly_weather("London", 0, weather, period="summary", lang="en")
     assert "Detailed daily forecast" in hourly_summary
