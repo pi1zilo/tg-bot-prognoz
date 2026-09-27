@@ -65,13 +65,9 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - `🌇 Tomorrow`: Next day forecast.
   - `📅 Day After Tomorrow`: Forecast for 2 days ahead.
   - Automatic local time zone resolution (`timezone`) using standard `zoneinfo`.
-- **Two Granularity Levels**:
-  - **Daily Summary**: Average & feels-like temperature, precipitation probability and volume, wind speed & 16-point compass direction, cloud cover, and WMO weather descriptions with emojis.
-  - **Hourly Breakdown**: 3-hour day overview or detailed hourly breakdown by day periods:
-    - 🌙 **Night** (00:00 — 05:00)
-    - 🌅 **Morning** (06:00 — 11:00)
-    - ☀️ **Afternoon** (12:00 — 17:00)
-    - 🌇 **Evening** (18:00 — 23:00)
+- **Two Granularity Levels (Mobile-First)**:
+  - **Daily Summary**: Compact single-line header (`📍 City · Date`), prominent status with rounded integer temperatures (`+13° (feels +11°)`), unified precipitation and wind lines.
+  - **Hourly Breakdown**: Optimized for narrow smartphone screens (320–375px), strictly 1 line per hour/interval without ugly line wraps, monospace time `<code>00:00</code>`, integer temperatures, and uncluttered wind and precipitation metrics.
 - **Historical Yesterday Archive**:
   - Integrated with Open-Meteo Historical Archive API to inspect real recorded weather for yesterday.
 - **In-Memory Caching & Performance**:
@@ -95,17 +91,54 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
 
 ## 🖼️ Interface
 
-The user interaction relies entirely on Telegram inline keyboards for intuitive navigation:
+The user interaction relies entirely on Telegram inline keyboards and is optimized for mobile screens of all widths (including 320–375px):
 
 ```text
 +-----------------------------------------------------------+
-| 📍 Location: Konstantinovo (Ryazan Region, Russia)        |
+| 📍 Location: London (England)                             |
 |                                                           |
 | Select a day to view weather forecast:                    |
 | [ 🌅 Yesterday ]       [ ☀️ Today ]                        |
-| [ 🌇 Tomorrow ]        [ 📅 Day After ]                    |
-| [ 📍 Change City / Village ]                              |
+| [ 🌇 Tomorrow ]        [ 📅 In 2 days ]                    |
+| [ 📍 Change location ]                                    |
 | [ 🌐 Language / Язык ]                                    |
++-----------------------------------------------------------+
+| 📍 London · Today, September 27                           |
+|                                                           |
+| 🌤 +13° (feels +11°) · Mainly clear                       |
+| 💧 Precipitation: 0% (0.0 mm)                             |
+| 💨 Wind: 4.8 m/s, SSE                                     |
+| ☁️ Cloud cover: 20%                                       |
+|                                                           |
+| [ 🔎 Details ]                                            |
+| [ ◀️ Back ]                  [ 🔄 Refresh ]               |
++-----------------------------------------------------------+
+| 🔎 Detailed daily forecast                                |
+| 📍 London · Today, September 27                           |
+|                                                           |
+| 🌙 Night                                                  |
+| 00:00 🌙 +10°  💧 0%  💨 4.8m/s SSE                       |
+| 03:00 🌙 +10°  💧 0%  💨 4.8m/s SSE                       |
+| 🌅 Morning                                                |
+| 06:00 🌤 +10°  💧 0%  💨 4.8m/s SSE                       |
+| 09:00 🌤 +10°  💧 0%  💨 4.8m/s SSE                       |
+|                                                           |
+| [ • 🌙 Night • ] [ 🌅 Morning ] [ ☀️ Day ] [ 🌇 Evening ] |
+| [ ◀️ Back to day ]           [ 🔄 Refresh ]               |
++-----------------------------------------------------------+
+| 🔎 Hourly forecast — 🌙 Night                             |
+| 📍 London · Today, September 27                           |
+|                                                           |
+| 00:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 01:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 02:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 03:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 04:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 05:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+|                                                           |
+| [ 🌙 Night ] [ 🌅 Morning ] [ ☀️ Day ] [ 🌇 Evening ]     |
+| [ 📋 Daily summary ]                                      |
+| [ ◀️ Back to day ]           [ 🔄 Refresh ]               |
 +-----------------------------------------------------------+
 ```
 
@@ -424,7 +457,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Testing
 
-The repository features **39 automated unit tests** covering all core business logic without sending live HTTP requests.
+The repository features **41 automated unit tests** covering all core business logic without sending live HTTP requests.
 
 ### Run tests with `pytest`:
 
@@ -442,7 +475,8 @@ python scripts/run_tests.py
 
 - [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and date calculations for Russian and English.
 - [`tests/test_weather_codes.py`](tests/test_weather_codes.py): WMO weather codes and 16-point wind compass calculations (RU / EN).
-- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English.
+- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with compact mobile layouts (320–375px), integer degree rounding, and country deduplication.
+
 - [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, and English output tests.
 - [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, and multi-language geocoding.
 - [`tests/test_handlers.py`](tests/test_handlers.py): FSM state handling, /start, /pogoda, and callback flows.

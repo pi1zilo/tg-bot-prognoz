@@ -71,7 +71,7 @@ class TestWeatherBotUtils(unittest.TestCase):
         text = format_daily_weather("Москва", 0, sample_weather)
         self.assertIn("Москва", text)
         self.assertIn("25 сентября", text)
-        self.assertIn("+14°C", text)
+        self.assertIn("+14°", text)
 
     def test_format_hourly_weather(self):
         sample_weather = {
@@ -94,7 +94,7 @@ class TestWeatherBotUtils(unittest.TestCase):
         text = format_hourly_weather("Москва", 0, sample_weather)
         self.assertIn("Подробный прогноз", text)
         self.assertIn("00:00", text)
-        self.assertIn("+10°C", text)
+        self.assertIn("+10°", text)
 
 if __name__ == "__main__":
     unittest.main()

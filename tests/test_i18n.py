@@ -108,12 +108,12 @@ def test_formatters_english():
     }
 
     daily_text = format_daily_weather("London", 0, weather, lang="en")
-    assert "Weather — Today" in daily_text
-    assert "📍 London" in daily_text
-    assert "September 27" in daily_text
-    assert "Temperature: +21°C (Mainly clear)" in daily_text
-    assert "Feels like: +20.5°C" in daily_text
-    assert "Wind direction: NW" in daily_text
+    assert "📍 <b>London</b> · Today, September 27" in daily_text
+    assert "+21°" in daily_text
+    assert "Mainly clear" in daily_text
+    assert "feels +20°" in daily_text
+    assert "Wind: 4.5 m/s, NW" in daily_text
+    assert "Precipitation: 15% (0.0 mm)" in daily_text
 
     hourly_summary = format_hourly_weather("London", 0, weather, period="summary", lang="en")
     assert "Detailed daily forecast" in hourly_summary
@@ -121,12 +121,14 @@ def test_formatters_english():
     assert "Morning" in hourly_summary
     assert "Day" in hourly_summary
     assert "Evening" in hourly_summary
-    assert "feels" in hourly_summary
     assert "m/s NW" in hourly_summary
 
     hourly_period = format_hourly_weather("London", 0, weather, period="day", lang="en")
-    assert "Hourly forecast — ☀️ Day (12:00 — 17:00)" in hourly_period
-    assert "Precipitation: 15%" in hourly_period
+    assert "Hourly forecast — ☀️ Day" in hourly_period
+    assert "💧 15%" in hourly_period
+    assert "4.5m/s" in hourly_period
+
+
 
 def test_keyboards_english():
     kb = get_main_menu_keyboard(lang="en")

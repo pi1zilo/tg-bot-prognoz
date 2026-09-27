@@ -209,7 +209,7 @@ async def test_cmd_pogoda_with_saved_user(fsm_context):
         mock_status_msg.edit_text.assert_awaited_once()
         text = mock_status_msg.edit_text.call_args[0][0]
         assert "Москва" in text
-        assert "18°C" in text
+        assert "18°" in text
 
 @pytest.mark.asyncio
 async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
@@ -270,8 +270,8 @@ async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
         )
         mock_status_msg.edit_text.assert_awaited_once()
         text = mock_status_msg.edit_text.call_args[0][0]
-        assert "Казань (Татарстан, Россия)" in text
-        assert "16°C" in text
+        assert "Казань (Татарстан)" in text
+        assert "16°" in text
 
 @pytest.mark.asyncio
 async def test_cmd_pogoda_with_city_argument_multiple_matches(fsm_context):

@@ -1,5 +1,5 @@
-import pytest
 from src.app.utils.formatters import (
+    clean_city_display,
     fmt_temp,
     get_hour_icon,
     format_daily_weather,
@@ -10,6 +10,15 @@ from src.app.utils.formatters import (
 )
 from src.app.keyboards.weather import get_day_forecast_keyboard, get_details_keyboard
 
+def test_clean_city_display():
+    assert clean_city_display("Москва (Россия)") == "Москва"
+    assert clean_city_display("Москва (Москва, Россия)") == "Москва"
+    assert clean_city_display("London (United Kingdom)") == "London"
+    assert clean_city_display("Константиново (Рязанская Область, Россия)") == "Константиново (Рязанская Область)"
+    assert clean_city_display("Springfield (Illinois, USA)") == "Springfield (Illinois)"
+    assert clean_city_display("Москва") == "Москва"
+    assert clean_city_display("") == ""
+
 def test_fmt_temp():
     assert fmt_temp(15) == "+15"
     assert fmt_temp(15.0) == "+15"
@@ -19,6 +28,11 @@ def test_fmt_temp():
     assert fmt_temp(-3) == "-3"
     assert fmt_temp(-3.5) == "-3.5"
     assert fmt_temp(None) == "Н/Д"
+    # Integer rounding
+    assert fmt_temp(10.7, round_int=True) == "+11"
+    assert fmt_temp(10.2, round_int=True) == "+10"
+    assert fmt_temp(-0.2, round_int=True) == "0"
+    assert fmt_temp(-3.7, round_int=True) == "-4"
 
 def test_get_hour_icon():
     # Day clear -> ☀️
@@ -86,7 +100,7 @@ def test_format_period_weather():
     assert "17:00" in day_text
     # 00:00 should not be in day period
     assert "00:00" not in day_text
-    assert "💧 Осадки: 60% (0.5 мм)" in day_text  # hour 14 precip check
+    assert "💧 60%" in day_text  # hour 14 precip check
 
 def test_keyboards_details():
     # Day forecast keyboard should now include details button for any offset
@@ -118,3 +132,16 @@ def test_keyboards_details():
     # Active button should be marked with dots
     day_btn = [btn for btn in d_buttons_day if btn.callback_data == "details:0:day"][0]
     assert "•" in day_btn.text
+
+def test_format_daily_weather_compact():
+    weather = create_mock_weather()
+    text = format_daily_weather("Москва (Россия)", 0, weather, lang="ru")
+    lines = text.split("\n")
+    # Single-line compact header without duplicate country
+    assert lines[0] == "📍 <b>Москва</b> · Сегодня, 25 сентября"
+    # No temperature/wind words, prominent status & compact apparent temp
+    assert "+12°" in text
+    assert "(ощ. +11°)" in text
+    assert "💧 Осадки: 60% (0.5 мм)" in text
+    assert "💨 Ветер: 3.5 м/с, В" in text
+    assert "☁️ Облачность: 40%" in text

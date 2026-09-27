@@ -1,9 +1,48 @@
+import html
+import re
 from src.app.utils.weather_codes import get_weather_info, get_wind_direction
 from src.app.utils.dates import get_day_title, format_date
 
-def fmt_temp(t: float | int | None, lang: str = "ru") -> str:
+def clean_city_display(city: str) -> str:
+    """
+    Cleans redundant country names from city strings to ensure compact display.
+    Examples:
+        'Москва (Россия)' -> 'Москва'
+        'Москва (Москва, Россия)' -> 'Москва'
+        'London (United Kingdom)' -> 'London'
+        'Константиново (Рязанская Область, Россия)' -> 'Константиново (Рязанская Область)'
+        'Springfield (Illinois, United States)' -> 'Springfield (Illinois)'
+        'Москва' -> 'Москва'
+    """
+    if not city or "(" not in city:
+        return city
+
+    m = re.search(r'^(.*?)\s*\((.*?)\)$', city.strip())
+    if not m:
+        return city
+
+    base_name = m.group(1).strip()
+    inside = m.group(2).strip()
+    parts = [p.strip() for p in inside.split(",") if p.strip()]
+
+    if len(parts) <= 1:
+        return base_name
+    else:
+        remaining = [p for p in parts[:-1] if p.lower() != base_name.lower()]
+        if not remaining:
+            return base_name
+        return f"{base_name} ({', '.join(remaining)})"
+
+def fmt_temp(t: float | int | None, lang: str = "ru", round_int: bool = False) -> str:
     if t is None:
         return "N/A" if lang == "en" else "Н/Д"
+    if round_int:
+        val = int(round(t))
+        if val == 0:
+            return "0"
+        if val > 0:
+            return f"+{val}"
+        return str(val)
     val = round(t, 1)
     if val == 0:
         return "0"
@@ -21,29 +60,29 @@ def get_hour_icon(hour: int, weather_code: int) -> str:
 
 PERIODS_CONFIG = {
     "night": {
-        "title_ru": "🌙 Ночь (00:00 — 05:00)",
-        "title_en": "🌙 Night (00:00 — 05:00)",
+        "title_ru": "🌙 Ночь",
+        "title_en": "🌙 Night",
         "button_ru": "🌙 Ночь",
         "button_en": "🌙 Night",
         "hours": set(range(0, 6)),
     },
     "morning": {
-        "title_ru": "🌅 Утро (06:00 — 11:00)",
-        "title_en": "🌅 Morning (06:00 — 11:00)",
+        "title_ru": "🌅 Утро",
+        "title_en": "🌅 Morning",
         "button_ru": "🌅 Утро",
         "button_en": "🌅 Morning",
         "hours": set(range(6, 12)),
     },
     "day": {
-        "title_ru": "☀️ День (12:00 — 17:00)",
-        "title_en": "☀️ Day (12:00 — 17:00)",
+        "title_ru": "☀️ День",
+        "title_en": "☀️ Day",
         "button_ru": "☀️ День",
         "button_en": "☀️ Day",
         "hours": set(range(12, 18)),
     },
     "evening": {
-        "title_ru": "🌇 Вечер (18:00 — 23:00)",
-        "title_en": "🌇 Evening (18:00 — 23:00)",
+        "title_ru": "🌇 Вечер",
+        "title_en": "🌇 Evening",
         "button_ru": "🌇 Вечер",
         "button_en": "🌇 Evening",
         "hours": set(range(18, 24)),
@@ -56,45 +95,60 @@ def get_formatted_date(weather: dict, lang: str = "ru") -> str:
     return weather.get("date_str", "")
 
 def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:
+    city_clean = clean_city_display(city)
     title_name = get_day_title(offset, lang=lang)
-    emoji, desc = get_weather_info(weather["weather_code"], lang=lang)
+    emoji, desc = get_weather_info(weather.get("weather_code", 0), lang=lang)
     date_str = get_formatted_date(weather, lang=lang)
 
     wind_dir = get_wind_direction(weather.get("median_wind_dir_deg", weather.get("wind_direction")), lang=lang)
 
+    date_header = f"{title_name}, {date_str}" if title_name else date_str
+    header_line = f"📍 <b>{html.escape(city_clean)}</b> · {html.escape(date_header)}"
+
+    temp_val = fmt_temp(weather.get("temperature"), lang=lang, round_int=True)
+    app_val = fmt_temp(weather.get("apparent_temperature"), lang=lang, round_int=True)
+
+    precip_prob = weather.get("precipitation_probability", 0)
+    precip_sum = weather.get("precipitation_sum", 0.0)
+    if isinstance(precip_sum, (int, float)):
+        precip_sum_str = f"{precip_sum:.1f}"
+    else:
+        precip_sum_str = str(precip_sum)
+
+    wind_spd = weather.get("wind_speed", 0.0)
+    if isinstance(wind_spd, float):
+        wind_spd_str = f"{wind_spd:.1f}" if wind_spd % 1 != 0 else str(int(wind_spd))
+    else:
+        wind_spd_str = str(wind_spd)
+
+    cloud_cover = weather.get("cloud_cover", 0)
+
     if lang == "en":
-        title_header = f"{emoji} Weather — {title_name}" if title_name else f"{emoji} Weather"
+        feels_label = "feels"
+        wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "N/A" else ""
         lines = [
-            title_header,
-            f"📍 {city}",
-            f"📅 {date_str}",
+            header_line,
             "",
-            f"🌡 Temperature: {fmt_temp(weather['temperature'], lang)}°C ({desc})",
-            f"🤚 Feels like: {fmt_temp(weather['apparent_temperature'], lang)}°C",
-            f"💧 Precipitation probability: {weather['precipitation_probability']}%",
-            f"🌧 Precipitation: {weather['precipitation_sum']} mm",
-            f"💨 Wind: {weather['wind_speed']} m/s",
-            f"🧭 Wind direction: {wind_dir}",
-            f"☁️ Cloud cover: {weather['cloud_cover']}%"
+            f"{emoji} <b>{temp_val}°</b> ({feels_label} {app_val}°) · <b>{html.escape(desc)}</b>",
+            f"💧 Precipitation: {precip_prob}% ({precip_sum_str} mm)",
+            f"💨 Wind: {wind_spd_str} m/s{wind_dir_part}",
+            f"☁️ Cloud cover: {cloud_cover}%",
         ]
     else:
-        title_header = f"{emoji} Погода — {title_name}" if title_name else f"{emoji} Погода"
+        feels_label = "ощ."
+        wind_dir_part = f", {html.escape(wind_dir)}" if wind_dir and wind_dir != "Н/Д" else ""
         lines = [
-            title_header,
-            f"📍 {city}",
-            f"📅 {date_str}",
+            header_line,
             "",
-            f"🌡 Температура: {fmt_temp(weather['temperature'], lang)}°C ({desc})",
-            f"🤚 Ощущается как: {fmt_temp(weather['apparent_temperature'], lang)}°C",
-            f"💧 Вероятность осадков: {weather['precipitation_probability']}%",
-            f"🌧 Осадки: {weather['precipitation_sum']} мм",
-            f"💨 Ветер: {weather['wind_speed']} м/с",
-            f"🧭 Направление ветра: {wind_dir}",
-            f"☁️ Облачность: {weather['cloud_cover']}%"
+            f"{emoji} <b>{temp_val}°</b> ({feels_label} {app_val}°) · <b>{html.escape(desc)}</b>",
+            f"💧 Осадки: {precip_prob}% ({precip_sum_str} мм)",
+            f"💨 Ветер: {wind_spd_str} м/с{wind_dir_part}",
+            f"☁️ Облачность: {cloud_cover}%",
         ]
     return "\n".join(lines)
 
 def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:
+    city_clean = clean_city_display(city)
     title_name = get_day_title(offset, lang=lang)
     date_str = get_formatted_date(weather, lang=lang)
     header_date = f"{title_name}, {date_str}" if title_name else date_str
@@ -107,7 +161,6 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             ("☀️ Day", [12, 15]),
             ("🌇 Evening", [18, 21]),
         ]
-        feels_label = "feels"
         speed_unit = "m/s"
         footer_tip = "<i>💡 Select a period below to view each hour:</i>"
     else:
@@ -118,14 +171,12 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             ("☀️ День", [12, 15]),
             ("🌇 Вечер", [18, 21]),
         ]
-        feels_label = "ощ."
         speed_unit = "м/с"
         footer_tip = "<i>💡 Выберите период ниже для просмотра каждого часа:</i>"
 
     lines = [
         header_title,
-        f"📍 <b>{city}</b>",
-        f"📅 {header_date}",
+        f"📍 <b>{html.escape(city_clean)}</b> · {html.escape(header_date)}",
         ""
     ]
 
@@ -137,9 +188,8 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             if hr not in hours_map:
                 continue
             h = hours_map[hr]
-            icon = get_hour_icon(h["hour"], h["weather_code"])
-            temp_str = fmt_temp(h["temperature"], lang)
-            app_str = fmt_temp(h["apparent_temperature"], lang)
+            icon = get_hour_icon(h["hour"], h.get("weather_code", 0))
+            temp_str = fmt_temp(h.get("temperature"), lang=lang, round_int=True)
             wind_dir = get_wind_direction(h.get("wind_direction"), lang=lang)
 
             precip_prob = h.get("precipitation_probability", 0)
@@ -149,9 +199,12 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             else:
                 wind_spd_str = str(wind_spd)
 
+            wind_dir_part = f" {html.escape(wind_dir)}" if wind_dir and wind_dir not in ("Н/Д", "N/A") else ""
+
+            # Example: <code>00:00</code> ☁️ +11°  💧 0%  💨 4.8м/с ЮЮВ
             row = (
-                f"• <b>{h['time']}</b> {icon} <b>{temp_str}°C</b> "
-                f"({feels_label} {app_str}°) · 💧 {precip_prob}% · 💨 {wind_spd_str} {speed_unit} {wind_dir}"
+                f"<code>{h['time']}</code> {icon} {temp_str}°  "
+                f"💧 {precip_prob}%  💨 {wind_spd_str}{speed_unit}{wind_dir_part}"
             )
             lines.append(row)
         lines.append("")
@@ -164,6 +217,7 @@ def format_period_weather(city: str, offset: int, weather: dict, period: str, la
     if not cfg:
         return format_summary_weather(city, offset, weather, lang=lang)
 
+    city_clean = clean_city_display(city)
     title_name = get_day_title(offset, lang=lang)
     date_str = get_formatted_date(weather, lang=lang)
     header_date = f"{title_name}, {date_str}" if title_name else date_str
@@ -172,21 +226,14 @@ def format_period_weather(city: str, offset: int, weather: dict, period: str, la
 
     if lang == "en":
         header_title = f"🔎 <b>Hourly forecast — {period_title}</b>"
-        feels_label = "feels"
         speed_unit = "m/s"
-        precip_label = "Precipitation"
-        precip_unit = "mm"
     else:
         header_title = f"🔎 <b>Почасовой прогноз — {period_title}</b>"
-        feels_label = "ощ."
         speed_unit = "м/с"
-        precip_label = "Осадки"
-        precip_unit = "мм"
 
     lines = [
         header_title,
-        f"📍 <b>{city}</b>",
-        f"📅 {header_date}",
+        f"📍 <b>{html.escape(city_clean)}</b> · {html.escape(header_date)}",
         ""
     ]
 
@@ -194,11 +241,8 @@ def format_period_weather(city: str, offset: int, weather: dict, period: str, la
     hours_data = [h for h in weather.get("hours", []) if h["hour"] in target_hours]
 
     for h in hours_data:
-        icon = get_hour_icon(h["hour"], h["weather_code"])
-        _, desc = get_weather_info(h["weather_code"], lang=lang)
-        temp_str = fmt_temp(h["temperature"], lang)
-        app_str = fmt_temp(h["apparent_temperature"], lang)
-        wind_dir = get_wind_direction(h.get("wind_direction"), lang=lang)
+        icon = get_hour_icon(h["hour"], h.get("weather_code", 0))
+        temp_str = fmt_temp(h.get("temperature"), lang=lang, round_int=True)
         wind_spd = h.get("wind_speed", 0.0)
         if isinstance(wind_spd, float):
             wind_spd_str = f"{wind_spd:.1f}" if wind_spd % 1 != 0 else str(int(wind_spd))
@@ -206,21 +250,19 @@ def format_period_weather(city: str, offset: int, weather: dict, period: str, la
             wind_spd_str = str(wind_spd)
 
         prob = h.get("precipitation_probability", 0)
-        precip = h.get("precipitation", 0.0)
-        cloud = h.get("cloud_cover", 0)
 
-        if precip > 0:
-            precip_text = f"💧 {precip_label}: {prob}% ({precip:.1f} {precip_unit})"
-        else:
-            precip_text = f"💧 {precip_label}: {prob}%"
-
-        lines.append(f"<b>{h['time']}</b> {icon} <b>{temp_str}°C</b> ({feels_label} {app_str}°C) — {desc}")
-        lines.append(f"{precip_text} · 💨 {wind_spd_str} {speed_unit} {wind_dir} · ☁️ {cloud}%")
-        lines.append("")
+        # Example: <code>00:00</code> ☁️ +11°  💧 0%  💨 4.8м/с
+        row = (
+            f"<code>{h['time']}</code> {icon} {temp_str}°  "
+            f"💧 {prob}%  💨 {wind_spd_str}{speed_unit}"
+        )
+        lines.append(row)
 
     return "\n".join(lines).strip()
+
 
 def format_hourly_weather(city: str, offset: int, weather: dict, period: str = "summary", lang: str = "ru") -> str:
     if period in PERIODS_CONFIG:
         return format_period_weather(city, offset, weather, period, lang=lang)
     return format_summary_weather(city, offset, weather, lang=lang)
+
