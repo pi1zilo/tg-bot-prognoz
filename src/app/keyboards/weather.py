@@ -1,46 +1,50 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from src.app.utils.i18n import t
 
-def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+def get_main_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🌅 Вчера", callback_data="day:-1"),
-            InlineKeyboardButton(text="☀️ Сегодня", callback_data="day:0")
+            InlineKeyboardButton(text=t("btn_yesterday", lang), callback_data="day:-1"),
+            InlineKeyboardButton(text=t("btn_today", lang), callback_data="day:0")
         ],
         [
-            InlineKeyboardButton(text="🌇 Завтра", callback_data="day:1"),
-            InlineKeyboardButton(text="📅 Послезавтра", callback_data="day:2")
+            InlineKeyboardButton(text=t("btn_tomorrow", lang), callback_data="day:1"),
+            InlineKeyboardButton(text=t("btn_after_tomorrow", lang), callback_data="day:2")
         ],
         [
-            InlineKeyboardButton(text="📍 Сменить город / село", callback_data="change_city")
+            InlineKeyboardButton(text=t("btn_change_city", lang), callback_data="change_city")
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="change_language")
         ]
     ])
 
-def get_settlements_keyboard(candidates: list[dict]) -> InlineKeyboardMarkup:
+def get_settlements_keyboard(candidates: list[dict], lang: str = "ru") -> InlineKeyboardMarkup:
     buttons = []
     for idx, cand in enumerate(candidates):
         text = f"📍 {cand['short_name']}"
         if len(text) > 42:
             text = text[:41] + "…"
         buttons.append([InlineKeyboardButton(text=text, callback_data=f"sel_city:{idx}")])
-    
-    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_city_search")])
+
+    buttons.append([InlineKeyboardButton(text=t("btn_cancel", lang), callback_data="cancel_city_search")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def get_day_forecast_keyboard(offset: int) -> InlineKeyboardMarkup:
+def get_day_forecast_keyboard(offset: int, lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔎 Подробнее", callback_data=f"details:{offset}:summary")],
+        [InlineKeyboardButton(text=t("btn_details", lang), callback_data=f"details:{offset}:summary")],
         [
-            InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu"),
-            InlineKeyboardButton(text="🔄 Обновить", callback_data=f"refresh:{offset}")
+            InlineKeyboardButton(text=t("btn_back", lang), callback_data="main_menu"),
+            InlineKeyboardButton(text=t("btn_refresh", lang), callback_data=f"refresh:{offset}")
         ]
     ])
 
-def get_details_keyboard(offset: int, active_period: str = "summary") -> InlineKeyboardMarkup:
+def get_details_keyboard(offset: int, active_period: str = "summary", lang: str = "ru") -> InlineKeyboardMarkup:
     periods = [
-        ("night", "🌙 Ночь"),
-        ("morning", "🌅 Утро"),
-        ("day", "☀️ День"),
-        ("evening", "🌇 Вечер"),
+        ("night", t("period_night", lang)),
+        ("morning", t("period_morning", lang)),
+        ("day", t("period_day", lang)),
+        ("evening", t("period_evening", lang)),
     ]
     period_row = []
     for p_id, p_label in periods:
@@ -51,18 +55,31 @@ def get_details_keyboard(offset: int, active_period: str = "summary") -> InlineK
 
     if active_period != "summary":
         rows.append([
-            InlineKeyboardButton(text="📋 Сводка за день (шаг 3 ч)", callback_data=f"details:{offset}:summary")
+            InlineKeyboardButton(text=t("btn_daily_summary", lang), callback_data=f"details:{offset}:summary")
         ])
 
     rows.append([
-        InlineKeyboardButton(text="◀️ К прогнозу дня", callback_data=f"day:{offset}"),
-        InlineKeyboardButton(text="🔄 Обновить", callback_data=f"refresh_details:{offset}:{active_period}")
+        InlineKeyboardButton(text=t("btn_back_to_day", lang), callback_data=f"day:{offset}"),
+        InlineKeyboardButton(text=t("btn_refresh", lang), callback_data=f"refresh_details:{offset}:{active_period}")
     ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-def get_back_only_keyboard() -> InlineKeyboardMarkup:
+def get_back_only_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")
+            InlineKeyboardButton(text=t("btn_back", lang), callback_data="main_menu")
         ]
     ])
+
+def get_language_keyboard(show_back: bool = False, lang: str = "ru") -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(text="🇷🇺 Русский", callback_data="set_lang:ru"),
+            InlineKeyboardButton(text="🇬🇧 English", callback_data="set_lang:en")
+        ]
+    ]
+    if show_back:
+        rows.append([
+            InlineKeyboardButton(text=t("btn_back", lang), callback_data="main_menu")
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

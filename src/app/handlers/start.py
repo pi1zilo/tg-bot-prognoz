@@ -5,15 +5,17 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from src.app.database.database import get_user, save_user
+from src.app.database.database import get_user, save_user, set_user_language, get_user_language
 from src.app.services.geocoding import search_settlements
 from src.app.services.weather import get_weather_for_day
 from src.app.keyboards.weather import (
     get_main_menu_keyboard,
     get_settlements_keyboard,
     get_day_forecast_keyboard,
+    get_language_keyboard,
 )
 from src.app.utils.formatters import format_daily_weather
+from src.app.utils.i18n import t
 
 class CityStates(StatesGroup):
     waiting_for_city = State()
@@ -26,58 +28,102 @@ async def cmd_start(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = await get_user(user_id)
     
-    if not user:
+    # Check if first launch (user not registered or no language selected and no city)
+    if not user or (not user.get("language") and not user.get("city")):
         if message.chat.type in ("group", "supergroup"):
             await message.answer(
-                "👋 Привет! Чтобы настроить постоянный город, напишите мне в личные сообщения "
-                "или запросите погоду с указанием города:\n👉 <code>/pogoda Москва</code>",
+                t("group_start_hint", "ru"),
                 parse_mode="HTML"
             )
             return
 
-        await state.set_state(CityStates.waiting_for_city)
+        # Ask language first on start
         await message.answer(
-            "👋 Привет! Я бот для просмотра прогноза погоды.\n\n"
-            "Пожалуйста, введите название вашего города, села или деревни\n"
-            "(например, <i>Москва</i>, <i>деревня Простоквашино</i> или <i>Константиново, Рязанская область</i>):",
+            t("choose_language", "ru"),
+            reply_markup=get_language_keyboard(show_back=False),
+            parse_mode="HTML"
+        )
+        return
+
+    lang = user.get("language") or "ru"
+    city = user.get("city")
+    if not city:
+        if message.chat.type in ("group", "supergroup"):
+            await message.answer(t("group_start_hint", lang), parse_mode="HTML")
+            return
+
+        await state.set_state(CityStates.waiting_for_city)
+        await message.answer(t("welcome_ask_city", lang), parse_mode="HTML")
+        return
+
+    await message.answer(
+        t("welcome_back", lang, city=city),
+        reply_markup=get_main_menu_keyboard(lang),
+        parse_mode="HTML"
+    )
+
+@router.message(Command("lang", "language"))
+async def cmd_language(message: Message):
+    user_lang = await get_user_language(message.from_user.id)
+    await message.answer(
+        t("choose_lang_title", user_lang),
+        reply_markup=get_language_keyboard(show_back=False, lang=user_lang)
+    )
+
+@router.callback_query(F.data == "change_language")
+async def cb_change_language(callback: CallbackQuery):
+    user_lang = await get_user_language(callback.from_user.id)
+    await callback.message.edit_text(
+        t("choose_lang_title", user_lang),
+        reply_markup=get_language_keyboard(show_back=True, lang=user_lang)
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("set_lang:"))
+async def cb_set_language(callback: CallbackQuery, state: FSMContext):
+    lang = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    await set_user_language(user_id, lang)
+    await state.update_data(language=lang)
+
+    user = await get_user(user_id)
+    if user and user.get("city"):
+        await callback.message.edit_text(
+            f"{t('lang_changed', lang)}\n\n{t('welcome_back', lang, city=user['city'])}",
+            reply_markup=get_main_menu_keyboard(lang),
             parse_mode="HTML"
         )
     else:
-        city = user["city"]
-        await message.answer(
-            f"🌤 Рад снова видеть вас!\n\n"
-            f"📍 Текущее место: <b>{city}</b>\n\n"
-            "Выберите день для просмотра погоды:",
-            reply_markup=get_main_menu_keyboard(),
+        await state.set_state(CityStates.waiting_for_city)
+        await callback.message.edit_text(
+            t("welcome_ask_city", lang),
             parse_mode="HTML"
         )
+    await callback.answer()
 
 @router.message(Command("pogoda", "weather"))
 async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext):
     user_id = message.from_user.id
     logging.info(f"Received /{command.command} from user {user_id} with args='{command.args}'")
+    user_lang = await get_user_language(user_id)
     
     city_query = command.args.strip() if command.args else ""
     
     if city_query:
-        msg = await message.answer("🔍 Ищу населенный пункт...")
+        msg = await message.answer(t("searching", user_lang))
         try:
-            places = await search_settlements(city_query)
+            places = await search_settlements(city_query, lang=user_lang)
         except RuntimeError:
-            await msg.edit_text("⚠️ Ошибка сервиса поиска. Попробуйте позже.")
+            await msg.edit_text(t("search_service_error", user_lang))
             return
         except Exception as e:
             logging.error(f"Error searching settlements for '{city_query}': {e}")
-            await msg.edit_text("⚠️ Произошла ошибка при поиске. Попробуйте еще раз.")
+            await msg.edit_text(t("search_error", user_lang))
             return
 
         if not places:
             await msg.edit_text(
-                f"❌ Населенный пункт «<b>{city_query}</b>» не найден.\n\n"
-                "💡 <b>Подсказки по поиску:</b>\n"
-                "• Проверьте правильность написания\n"
-                "• Попробуйте ввести только название (например, <code>/pogoda Простоквашино</code>)\n"
-                "• Укажите регион через запятую (например, <code>/pogoda Ивановка, Московская область</code>)",
+                t("not_found", user_lang, city_query=city_query),
                 parse_mode="HTML"
             )
             return
@@ -103,23 +149,21 @@ async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext
             except Exception as e:
                 logging.error(f"Error fetching weather for '{place['display_name']}': {e}")
                 await msg.edit_text(
-                    f"✅ Населенный пункт установлен: <b>{place['display_name']}</b>\n"
-                    "⚠️ Но не удалось загрузить прогноз погоды. Попробуйте позже.",
+                    t("city_set_weather_fail", user_lang, city=place["display_name"]),
                     parse_mode="HTML"
                 )
                 return
 
-            text = format_daily_weather(place["display_name"], 0, weather)
-            keyboard = get_day_forecast_keyboard(0)
+            text = format_daily_weather(place["display_name"], 0, weather, lang=user_lang)
+            keyboard = get_day_forecast_keyboard(0, lang=user_lang)
             await msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
             return
 
         # Multiple candidates found
         await state.update_data(city_candidates=places)
-        keyboard = get_settlements_keyboard(places)
+        keyboard = get_settlements_keyboard(places, lang=user_lang)
         await msg.edit_text(
-            f"📍 По запросу «<b>{city_query}</b>» найдено несколько мест.\n"
-            "Пожалуйста, выберите ваш населенный пункт:",
+            t("multiple_found", user_lang, city_query=city_query),
             reply_markup=keyboard,
             parse_mode="HTML"
         )
@@ -127,8 +171,8 @@ async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext
 
     # No city argument provided: check if user has a saved city
     user = await get_user(user_id)
-    if user:
-        msg = await message.answer("⏳ Загружаю данные о погоде...")
+    if user and user.get("city"):
+        msg = await message.answer(t("loading_weather", user_lang))
         try:
             weather = await get_weather_for_day(
                 latitude=user["latitude"],
@@ -138,70 +182,60 @@ async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext
             )
         except Exception as e:
             logging.error(f"Error fetching weather for user {user_id}: {e}")
-            await msg.edit_text("⚠️ Ошибка получения прогноза погоды. Попробуйте позже.")
+            await msg.edit_text(t("weather_error_generic", user_lang))
             return
 
-        text = format_daily_weather(user["city"], 0, weather)
-        keyboard = get_day_forecast_keyboard(0)
+        text = format_daily_weather(user["city"], 0, weather, lang=user_lang)
+        keyboard = get_day_forecast_keyboard(0, lang=user_lang)
         await msg.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
         return
 
-    # User not found and no argument
+    # User not found or no city saved and no argument provided
     if message.chat.type in ("group", "supergroup"):
         await message.answer(
-            "📍 <b>У вас ещё не сохранён населённый пункт.</b>\n\n"
-            "Вы можете узнать погоду прямо сейчас, указав город в команде:\n"
-            "👉 <code>/pogoda Москва</code>\n\n"
-            "Либо напишите мне в личные сообщения, чтобы сохранить город постоянным.",
+            t("group_no_city", user_lang),
             parse_mode="HTML"
         )
     else:
         await state.set_state(CityStates.waiting_for_city)
         await message.answer(
-            "👋 У вас ещё не сохранён населённый пункт.\n\n"
-            "Пожалуйста, введите название вашего города, села или деревни\n"
-            "(например, <i>Москва</i>, <i>деревня Простоквашино</i> или <i>Константиново, Рязанская область</i>)\n"
-            "или используйте команду: <code>/pogoda Город</code>",
+            t("private_no_city", user_lang),
             parse_mode="HTML"
         )
 
 @router.callback_query(F.data == "change_city")
 async def cb_change_city(callback: CallbackQuery, state: FSMContext):
+    user_lang = await get_user_language(callback.from_user.id)
     await state.set_state(CityStates.waiting_for_city)
     await callback.message.edit_text(
-        "📍 Введите название города, села или деревни\n"
-        "(например, <i>Санкт-Петербург</i>, <i>пгт Шерегеш</i> или <i>Ивановка, Московская область</i>):",
+        t("change_city_prompt", user_lang),
         parse_mode="HTML"
     )
     await callback.answer()
 
 @router.message(CityStates.waiting_for_city)
 async def process_city_input(message: Message, state: FSMContext):
-    city_query = message.text.strip()
+    user_lang = await get_user_language(message.from_user.id)
+    city_query = message.text.strip() if message.text else ""
     if not city_query:
-        await message.answer("Пожалуйста, введите корректное название населенного пункта.")
+        await message.answer(t("enter_valid_city", user_lang))
         return
 
-    msg = await message.answer("🔍 Ищу населенный пункт...")
+    msg = await message.answer(t("searching", user_lang))
     
     try:
-        places = await search_settlements(city_query)
-    except RuntimeError as e:
-        await msg.edit_text("⚠️ Ошибка сервиса поиска. Попробуйте позже.")
+        places = await search_settlements(city_query, lang=user_lang)
+    except RuntimeError:
+        await msg.edit_text(t("search_service_error", user_lang))
         return
     except Exception as e:
         logging.error(f"Error searching settlements for '{city_query}': {e}")
-        await msg.edit_text("⚠️ Произошла ошибка при поиске. Попробуйте еще раз.")
+        await msg.edit_text(t("search_error", user_lang))
         return
 
     if not places:
         await msg.edit_text(
-            f"❌ Населенный пункт «<b>{city_query}</b>» не найден.\n\n"
-            "💡 <b>Подсказки по поиску:</b>\n"
-            "• Проверьте правильность написания\n"
-            "• Попробуйте ввести только название (например: <i>Простоквашино</i> вместо <i>деревня Простоквашино</i>)\n"
-            "• Укажите регион через запятую (например: <i>Ивановка, Московская область</i>)\n\n"
-            "Попробуйте ввести еще раз:",
+            t("not_found_input", user_lang, city_query=city_query),
             parse_mode="HTML"
         )
         return
@@ -219,33 +253,33 @@ async def process_city_input(message: Message, state: FSMContext):
         await state.clear()
         
         await msg.edit_text(
-            f"✅ Населенный пункт успешно установлен:\n<b>{place['display_name']}</b>",
+            t("city_set_success", user_lang, city=place["display_name"]),
             parse_mode="HTML"
         )
         await message.answer(
-            "Выберите день для просмотра прогноза погоды:",
-            reply_markup=get_main_menu_keyboard()
+            t("select_day", user_lang),
+            reply_markup=get_main_menu_keyboard(user_lang)
         )
         return
 
     # If multiple candidates found, offer choices via inline keyboard
     await state.update_data(city_candidates=places)
-    keyboard = get_settlements_keyboard(places)
+    keyboard = get_settlements_keyboard(places, lang=user_lang)
     await msg.edit_text(
-        f"📍 По запросу «<b>{city_query}</b>» найдено несколько мест.\n"
-        "Пожалуйста, выберите ваш населенный пункт:",
+        t("multiple_found", user_lang, city_query=city_query),
         reply_markup=keyboard,
         parse_mode="HTML"
     )
 
 @router.callback_query(F.data.startswith("sel_city:"))
 async def cb_select_city(callback: CallbackQuery, state: FSMContext):
+    user_lang = await get_user_language(callback.from_user.id)
     idx = int(callback.data.split(":")[1])
     data = await state.get_data()
     candidates = data.get("city_candidates", [])
     
     if not candidates or idx >= len(candidates):
-        await callback.answer("⚠️ Список устарел. Пожалуйста, введите название снова.", show_alert=True)
+        await callback.answer(t("list_outdated", user_lang), show_alert=True)
         if callback.message.chat.type == "private":
             await state.set_state(CityStates.waiting_for_city)
         return
@@ -261,33 +295,33 @@ async def cb_select_city(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     
     await callback.message.edit_text(
-        f"✅ Населенный пункт успешно установлен:\n<b>{place['display_name']}</b>",
+        t("city_set_success", user_lang, city=place["display_name"]),
         parse_mode="HTML"
     )
     await callback.message.answer(
-        "Выберите день для просмотра прогноза погоды:",
-        reply_markup=get_main_menu_keyboard()
+        t("select_day", user_lang),
+        reply_markup=get_main_menu_keyboard(user_lang)
     )
     await callback.answer()
 
 @router.callback_query(F.data == "cancel_city_search")
 async def cb_cancel_city_search(callback: CallbackQuery, state: FSMContext):
     user = await get_user(callback.from_user.id)
+    user_lang = user.get("language", "ru") if user else "ru"
     await state.clear()
-    if user:
+    if user and user.get("city"):
         await callback.message.edit_text(
-            f"📍 Поиск отменен.\nТекущее место: <b>{user['city']}</b>\n\n"
-            "Выберите день для просмотра прогноза погоды:",
-            reply_markup=get_main_menu_keyboard(),
+            t("search_cancelled_current", user_lang, city=user["city"]),
+            reply_markup=get_main_menu_keyboard(user_lang),
             parse_mode="HTML"
         )
     else:
         if callback.message.chat.type in ("group", "supergroup"):
-            await callback.message.edit_text("📍 Поиск отменен.")
+            await callback.message.edit_text(t("search_cancelled", user_lang))
         else:
             await state.set_state(CityStates.waiting_for_city)
             await callback.message.edit_text(
-                "Пожалуйста, введите название города, села или деревни:",
+                t("search_cancelled_enter_city", user_lang),
                 parse_mode="HTML"
             )
     await callback.answer()

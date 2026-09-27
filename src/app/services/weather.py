@@ -132,12 +132,14 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
 
     summary = {
         "date_str": format_date_ru(target_date),
+        "target_date": target_date,
         "temperature": round(avg_temp, 1),
         "apparent_temperature": round(avg_app_temp, 1),
         "precipitation_sum": round(total_precip, 1),
         "precipitation_probability": round(max_precip_prob),
         "wind_speed": round(avg_wind_speed, 1),
         "wind_direction": get_wind_direction(median_wind_dir),
+        "median_wind_dir_deg": median_wind_dir,
         "cloud_cover": round(avg_cloud_cover),
         "weather_code": median_weather_code,
         "hours": hours_data

@@ -9,6 +9,7 @@ from src.app.keyboards.weather import (
     get_details_keyboard
 )
 from src.app.utils.formatters import format_daily_weather, format_hourly_weather
+from src.app.utils.i18n import t
 
 router = Router()
 
@@ -16,15 +17,15 @@ router = Router()
 async def cb_main_menu(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
-    if not user:
-        await callback.message.edit_text("⚠️ Населенный пункт не настроен. Пожалуйста, отправьте /start.")
+    user_lang = user.get("language", "ru") if user else "ru"
+    if not user or not user.get("city"):
+        await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
     await callback.message.edit_text(
-        f"📍 Текущее место: <b>{user['city']}</b>\n\n"
-        "Выберите день для просмотра прогноза погоды:",
-        reply_markup=get_main_menu_keyboard(),
+        t("welcome_back", user_lang, city=user["city"]),
+        reply_markup=get_main_menu_keyboard(user_lang),
         parse_mode="HTML"
     )
     await callback.answer()
@@ -33,14 +34,15 @@ async def cb_main_menu(callback: CallbackQuery):
 async def cb_day_forecast(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
-    if not user:
-        await callback.message.edit_text("⚠️ Город не настроен. Пожалуйста, отправьте /start.")
+    user_lang = user.get("language", "ru") if user else "ru"
+    if not user or not user.get("city"):
+        await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
     offset = int(callback.data.split(":")[1])
     
-    await callback.message.edit_text("⏳ Загружаю данные о погоде...")
+    await callback.message.edit_text(t("loading_weather", user_lang))
 
     try:
         weather = await get_weather_for_day(
@@ -51,14 +53,14 @@ async def cb_day_forecast(callback: CallbackQuery):
         )
     except Exception as e:
         await callback.message.edit_text(
-            f"⚠️ Ошибка получения прогноза погоды: {e}",
-            reply_markup=get_main_menu_keyboard()
+            t("weather_error", user_lang, error=str(e)),
+            reply_markup=get_main_menu_keyboard(user_lang)
         )
         await callback.answer()
         return
 
-    text = format_daily_weather(user["city"], offset, weather)
-    keyboard = get_day_forecast_keyboard(offset)
+    text = format_daily_weather(user["city"], offset, weather, lang=user_lang)
+    keyboard = get_day_forecast_keyboard(offset, lang=user_lang)
 
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
@@ -67,8 +69,9 @@ async def cb_day_forecast(callback: CallbackQuery):
 async def cb_hourly_details(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
-    if not user:
-        await callback.message.edit_text("⚠️ Город не настроен. Пожалуйста, отправьте /start.")
+    user_lang = user.get("language", "ru") if user else "ru"
+    if not user or not user.get("city"):
+        await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
@@ -89,14 +92,14 @@ async def cb_hourly_details(callback: CallbackQuery):
         )
     except Exception as e:
         await callback.message.edit_text(
-            f"⚠️ Ошибка получения прогноза: {e}",
-            reply_markup=get_day_forecast_keyboard(offset)
+            t("weather_error", user_lang, error=str(e)),
+            reply_markup=get_day_forecast_keyboard(offset, lang=user_lang)
         )
         await callback.answer()
         return
 
-    text = format_hourly_weather(user["city"], offset, weather, period=period)
-    keyboard = get_details_keyboard(offset, active_period=period)
+    text = format_hourly_weather(user["city"], offset, weather, period=period, lang=user_lang)
+    keyboard = get_details_keyboard(offset, active_period=period, lang=user_lang)
 
     # Check length limits for detailed forecast message
     if len(text) > 4096:
@@ -116,13 +119,14 @@ async def cb_hourly_details(callback: CallbackQuery):
 async def cb_refresh_day(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
-    if not user:
-        await callback.message.edit_text("⚠️ Город не настроен. Пожалуйста, отправьте /start.")
+    user_lang = user.get("language", "ru") if user else "ru"
+    if not user or not user.get("city"):
+        await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
     offset = int(callback.data.split(":")[1])
-    await callback.message.edit_text("🔄 Обновляю данные...")
+    await callback.message.edit_text(t("updating_data", user_lang))
 
     try:
         weather = await get_weather_for_day(
@@ -134,24 +138,25 @@ async def cb_refresh_day(callback: CallbackQuery):
         )
     except Exception as e:
         await callback.message.edit_text(
-            f"⚠️ Ошибка обновления прогноза: {e}",
-            reply_markup=get_main_menu_keyboard()
+            t("weather_refresh_error", user_lang, error=str(e)),
+            reply_markup=get_main_menu_keyboard(user_lang)
         )
         await callback.answer()
         return
 
-    text = format_daily_weather(user["city"], offset, weather)
-    keyboard = get_day_forecast_keyboard(offset)
+    text = format_daily_weather(user["city"], offset, weather, lang=user_lang)
+    keyboard = get_day_forecast_keyboard(offset, lang=user_lang)
 
     await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    await callback.answer("Данные обновлены!")
+    await callback.answer(t("data_updated", user_lang))
 
 @router.callback_query(F.data.startswith("refresh_details:"))
 async def cb_refresh_details(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
-    if not user:
-        await callback.message.edit_text("⚠️ Город не настроен. Пожалуйста, отправьте /start.")
+    user_lang = user.get("language", "ru") if user else "ru"
+    if not user or not user.get("city"):
+        await callback.message.edit_text(t("city_not_configured", user_lang))
         await callback.answer()
         return
 
@@ -162,7 +167,7 @@ async def cb_refresh_details(callback: CallbackQuery):
         offset = 0
 
     period = parts[2] if len(parts) > 2 else "summary"
-    await callback.message.edit_text("🔄 Обновляю подробный прогноз...")
+    await callback.message.edit_text(t("updating_details", user_lang))
 
     try:
         weather = await get_weather_for_day(
@@ -174,14 +179,14 @@ async def cb_refresh_details(callback: CallbackQuery):
         )
     except Exception as e:
         await callback.message.edit_text(
-            f"⚠️ Ошибка обновления прогноза: {e}",
-            reply_markup=get_day_forecast_keyboard(offset)
+            t("weather_refresh_error", user_lang, error=str(e)),
+            reply_markup=get_day_forecast_keyboard(offset, lang=user_lang)
         )
         await callback.answer()
         return
 
-    text = format_hourly_weather(user["city"], offset, weather, period=period)
-    keyboard = get_details_keyboard(offset, active_period=period)
+    text = format_hourly_weather(user["city"], offset, weather, period=period, lang=user_lang)
+    keyboard = get_details_keyboard(offset, active_period=period, lang=user_lang)
 
     if len(text) > 4096:
         text = text[:4093] + "..."
@@ -190,8 +195,8 @@ async def cb_refresh_details(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     except Exception as e:
         if "message is not modified" in str(e).lower():
-            await callback.answer("Подробный прогноз уже актуален!")
+            await callback.answer(t("details_already_current", user_lang))
             return
         raise
 
-    await callback.answer("Подробный прогноз обновлен!")
+    await callback.answer(t("details_updated", user_lang))

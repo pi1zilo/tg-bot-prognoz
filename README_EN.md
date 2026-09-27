@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-30%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-39%20passed-success.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -48,10 +48,15 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
 
 ## ✨ Key Features
 
+- **Bilingual Interface & Localization (EN / RU)**:
+  - Prompts users to choose their preferred language (`🇷🇺 Русский` or `🇬🇧 English`) on first launch.
+  - Complete localization of messages, month names, dates, search hints, WMO weather descriptions, wind compass points, and units.
+  - Switch languages anytime via main menu `[ 🌐 Language / Язык ]` or `/lang` (`/language`) command.
+  - Passes user language preference to Open-Meteo Geocoding API (`language="en"` / `"ru"`).
 - **Smart Settlement Geocoding**:
   - Supports all settlement types: cities, villages, hamlets, urban-type settlements (PGT), cossack villages (stanitsas), etc.
   - Automatic cleaning of Russian status prefixes (`д.`, `с.`, `п.`, `г.`, `пгт`, `хутор`, `деревня`, `село`, etc.).
-  - Search with region refinement via commas, parentheses, or direct text (e.g., `Konstantinovo, Ryazan region`).
+  - Search with region refinement via commas, parentheses, or direct text (e.g., `Konstantinovo, Ryazan region` or `Springfield, Illinois`).
   - Automatic handling of `e` / `ё` character equivalence during lookup.
   - Interactive selection via inline buttons when multiple matching locations exist, prioritized by CIS countries and population count.
 - **4-Day Forecast with Time Zone Awareness**:
@@ -75,11 +80,12 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - Seamless message editing in Telegram to eliminate chat clutter.
   - `trust_env=False` HTTP client configuration to isolate from erroneous system proxies.
 - **Persistent User Storage**:
-  - Asynchronous SQLite persistence (`aiosqlite`) storing user location, coordinates, and timezone.
-- **`/pogoda` Command for Group Chats & DMs**:
-  - Convenient bot invocation via `/pogoda` (or `/weather`) without needing to send `/start` in group chats.
+  - Asynchronous SQLite persistence (`aiosqlite`) storing user location, coordinates, timezone, and language.
+- **Commands `/weather`, `/pogoda`, and `/lang`**:
+  - Convenient bot invocation via `/weather` or `/pogoda` without needing to send `/start` in group chats.
   - Instant today's weather forecast for users with a saved location.
-  - Direct query support with city parameter: `/pogoda Moscow`, `/pogoda Kazan`, `/pogoda pgt Sheregesh`.
+  - Direct query support with city parameter: `/weather London`, `/pogoda Moscow`, `/weather New York`.
+  - `/lang` (`/language`) command for instant language selection.
   - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
   - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
 - **Robust Error Handling & Logging**:
@@ -99,6 +105,7 @@ The user interaction relies entirely on Telegram inline keyboards for intuitive 
 | [ 🌅 Yesterday ]       [ ☀️ Today ]                        |
 | [ 🌇 Tomorrow ]        [ 📅 Day After ]                    |
 | [ 📍 Change City / Village ]                              |
+| [ 🌐 Language / Язык ]                                    |
 +-----------------------------------------------------------+
 ```
 
@@ -137,18 +144,19 @@ prognoz/
 │       ├── database/
 │       │   └── database.py    # SQLite initialization, users table schema & CRUD methods
 │       ├── handlers/
-│       │   ├── start.py       # /start and /pogoda handlers, location input FSM, location selection
-│       │   └── callbacks.py   # Inline button handlers (days, periods, refresh)
+│       │   ├── start.py       # /start, /pogoda, /weather & /lang handlers, language selection & city input
+│       │   └── callbacks.py   # Inline button handlers (days, periods, refresh, language)
 │       ├── keyboards/
-│       │   └── weather.py     # Inline keyboard factories
+│       │   └── weather.py     # Inline keyboard factories (menu, language picker, periods)
 │       ├── services/
-│       │   ├── geocoding.py   # Settlement parser & Open-Meteo geocoding service
+│       │   ├── geocoding.py   # Settlement parser & Open-Meteo geocoding service (RU / EN)
 │       │   └── weather.py     # Weather Forecast & Archive API fetcher with TTL cache
 │       ├── utils/
-│       │   ├── dates.py       # Date offset calculations (-1, 0, 1, 2) & ZoneInfo helpers
-│       │   ├── formatters.py  # Summary, overview, and hourly forecast formatters
+│       │   ├── dates.py       # Date offset calculations (-1, 0, 1, 2) & ZoneInfo helpers (RU / EN)
+│       │   ├── formatters.py  # Summary, overview, and hourly forecast formatters (RU / EN)
+│       │   ├── i18n.py        # Localization dictionary and translation helper (RU / EN)
 │       │   ├── logger.py      # Console logger & file logger configuration
-│       │   └── weather_codes.py # WMO code mapping & wind compass calculations
+│       │   └── weather_codes.py # WMO code mapping & wind compass calculations (RU / EN)
 │       └── config.py          # Environment settings loader
 ├── tests/                     # Automated unit test suite
 │   ├── conftest.py            # sys.path configuration for pytest
@@ -156,6 +164,7 @@ prognoz/
 │   ├── test_formatters.py     # Message formatting & inline keyboard tests
 │   ├── test_geocoding.py      # Prefix stripping, region parsing, and ranking tests
 │   ├── test_handlers.py       # FSM state and callback handler tests
+│   ├── test_i18n.py           # Language selection, first launch and English forecast tests
 │   └── test_weather_codes.py  # WMO weather code and wind direction tests
 ├── .dockerignore              # Docker build exclusion rules
 ├── .env.example               # Environment variables template
@@ -294,6 +303,9 @@ The user scenario is managed through a Finite State Machine (FSM) and callback q
 [ New User ]                [ Existing User in DB ]
           │                           │
           ▼                           │
+[ Language Picker: RU / EN ]          │
+          │                           │
+          ▼                           │
 [ Enter Settlement Name ]             │
           │                           │
           ▼                           │
@@ -337,13 +349,34 @@ The user scenario is managed through a Finite State Machine (FSM) and callback q
                        [ Hourly Detailed Forecast ]
 ```
 
+1. **/start & Language Setup**:
+   - On first launch, the bot prompts the user to pick their language (`🇷🇺 Русский` / `🇬🇧 English`).
+   - The bot records the selection and transitions into the city input state in the selected language.
+   - For returning users, the bot loads their saved city and language preference directly, showing the main menu.
+2. **City Input & Geocoding**:
+   - The user enters a settlement name (e.g., `London`, `Springfield, Illinois`, `село Константиново`).
+   - `parse_settlement_query` cleans administrative prefixes and isolates region hints.
+   - The query is sent to Open-Meteo Geocoding API with the user's language setting.
+   - If multiple candidates exist, an interactive keyboard allows the user to choose their location.
+   - Upon confirmation, user ID, city name, coordinates, timezone, and language are saved to SQLite.
+3. **Day Selection**:
+   - The user selects one of 4 days: **Yesterday**, **Today**, **Tomorrow**, **Day After Tomorrow**.
+   - The date is computed dynamically relative to the settlement's local timezone.
+4. **Forecast & Granularity**:
+   - The message edits seamlessly to show weather metrics in the chosen language.
+   - The **«🔎 Details»** button opens a 3-hour summary for the day (night, morning, day, evening).
+   - Time-of-day buttons (**Night**, **Morning**, **Day**, **Evening**) expand hourly details for that 6-hour interval.
+   - The **«🔄 Refresh»** button invalidates the cache and fetches fresh weather data.
+   - The **«📍 Change Location»** button allows setting a new location at any time.
+   - The **«🌐 Language / Язык»** button (or `/lang` / `/language` command) allows switching language anytime.
+
 ---
 
 ## 🌐 External APIs
 
 The project integrates three **[Open-Meteo](https://open-meteo.com/)** services:
 
-1. **Geocoding API** (`https://geocoding-api.open-meteo.com/v1/search`): Transforms settlement queries into latitude, longitude, region (`admin1`), country, and `timezone`.
+1. **Geocoding API** (`https://geocoding-api.open-meteo.com/v1/search`): Transforms settlement queries into latitude, longitude, region (`admin1`), country, and `timezone` using `language=en` or `language=ru`.
 2. **Weather Forecast API** (`https://api.open-meteo.com/v1/forecast`): Fetches hourly forecast metrics for today, tomorrow, and day after tomorrow.
 3. **Historical Archive API** (`https://archive-api.open-meteo.com/v1/archive`): Fetches actual recorded historical data for yesterday.
 
@@ -373,18 +406,25 @@ User settings are stored in **SQLite**:
 ```sql
 CREATE TABLE IF NOT EXISTS users (
     telegram_id INTEGER PRIMARY KEY,
-    city        TEXT NOT NULL,
-    latitude    REAL NOT NULL,
-    longitude   REAL NOT NULL,
-    timezone    TEXT NOT NULL
+    city        TEXT,
+    latitude    REAL,
+    longitude   REAL,
+    timezone    TEXT,
+    language    TEXT DEFAULT 'ru'
 );
 ```
+
+- **Data Operations**:
+  - `get_user(telegram_id)`: Fetches user profile including language.
+  - `save_user(...)`: Inserts or updates user records while preserving language settings.
+  - `set_user_language(telegram_id, language)`: Sets or updates interface language (`ru` / `en`).
+  - `get_user_language(telegram_id)`: Returns user language (defaults to `ru`).
 
 ---
 
 ## 🧪 Testing
 
-The repository features **30 automated unit tests** covering all core business logic without sending live HTTP requests.
+The repository features **39 automated unit tests** covering all core business logic without sending live HTTP requests.
 
 ### Run tests with `pytest`:
 
@@ -397,6 +437,15 @@ python -m pytest
 ```bash
 python scripts/run_tests.py
 ```
+
+### Test Suite Structure
+
+- [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and date calculations for Russian and English.
+- [`tests/test_weather_codes.py`](tests/test_weather_codes.py): WMO weather codes and 16-point wind compass calculations (RU / EN).
+- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English.
+- [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, and English output tests.
+- [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, and multi-language geocoding.
+- [`tests/test_handlers.py`](tests/test_handlers.py): FSM state handling, /start, /pogoda, and callback flows.
 
 ---
 

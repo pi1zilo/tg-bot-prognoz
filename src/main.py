@@ -22,12 +22,28 @@ from src.app.utils.logger import setup_logging
 
 
 async def set_bot_commands(bot: Bot):
-    commands = [
+    commands_default = [
+        BotCommand(command="weather", description="🌤 Today's weather (or /weather <city>)"),
+        BotCommand(command="pogoda", description="🌤 Weather for today (/pogoda <city>)"),
+        BotCommand(command="start", description="🚀 Main menu"),
+        BotCommand(command="lang", description="🌐 Change language / Сменить язык"),
+    ]
+    commands_ru = [
         BotCommand(command="pogoda", description="🌤 Погода на сегодня (или /pogoda <город>)"),
+        BotCommand(command="weather", description="🌤 Погода на сегодня (/weather <город>)"),
         BotCommand(command="start", description="🚀 Главное меню и выбор дня"),
+        BotCommand(command="lang", description="🌐 Сменить язык (RU / EN)"),
+    ]
+    commands_en = [
+        BotCommand(command="weather", description="🌤 Today's weather (or /weather <city>)"),
+        BotCommand(command="pogoda", description="🌤 Today's weather (/pogoda <city>)"),
+        BotCommand(command="start", description="🚀 Main menu and day selection"),
+        BotCommand(command="lang", description="🌐 Change language (RU / EN)"),
     ]
     try:
-        await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(commands_default, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(commands_ru, scope=BotCommandScopeDefault(), language_code="ru")
+        await bot.set_my_commands(commands_en, scope=BotCommandScopeDefault(), language_code="en")
         logging.info("Команды бота успешно установлены в Telegram.")
     except Exception as e:
         logging.warning(f"Не удалось установить команды бота в Telegram: {e}")

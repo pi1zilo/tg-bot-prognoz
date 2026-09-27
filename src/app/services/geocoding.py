@@ -77,7 +77,7 @@ def format_full_display(name: str, admin1: str, country: str) -> str:
         return f"{name} ({', '.join(parts)})"
     return name
 
-async def search_settlements(query: str, max_results: int = 5) -> list[dict]:
+async def search_settlements(query: str, max_results: int = 5, lang: str = "ru") -> list[dict]:
     """
     Searches for settlements (cities, towns, villages, hamlets) using Open-Meteo.
     Handles prefixes, region hints, and 'ё' letter variants.
@@ -105,7 +105,7 @@ async def search_settlements(query: str, max_results: int = 5) -> list[dict]:
             params = {
                 "name": q_name,
                 "count": 10,
-                "language": "ru",
+                "language": lang if lang in ("ru", "en") else "ru",
                 "format": "json"
             }
             try:
@@ -165,19 +165,21 @@ async def search_settlements(query: str, max_results: int = 5) -> list[dict]:
             matching.sort(key=match_score, reverse=True)
             places = matching
 
-    # If Cyrillic query without hint, prioritize Russia/CIS countries
-    elif any('\u0400' <= char <= '\u04FF' for char in clean_name):
+    # If Cyrillic query without hint and lang is ru, prioritize Russia/CIS countries
+    elif lang == "ru" and any('\u0400' <= char <= '\u04FF' for char in clean_name):
         pri_countries = {"Россия", "Беларусь", "Казахстан"}
         places.sort(key=lambda p: (1 if p["country"] in pri_countries else 0, p.get("population", 0)), reverse=True)
+    else:
+        places.sort(key=lambda p: p.get("population", 0), reverse=True)
 
     return places[:max_results]
 
-async def get_city_geocoding(city_name: str) -> dict:
+async def get_city_geocoding(city_name: str, lang: str = "ru") -> dict:
     """
     Backward-compatible single-settlement geocoding function.
     Returns the best matching settlement.
     """
-    places = await search_settlements(city_name, max_results=1)
+    places = await search_settlements(city_name, max_results=1, lang=lang)
     if not places:
         raise ValueError(
             f"Населенный пункт «{city_name}» не найден.\n\n"
