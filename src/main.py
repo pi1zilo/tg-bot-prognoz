@@ -13,11 +13,24 @@ for directory in (PROJECT_ROOT, SRC_DIR):
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import BotCommand, BotCommandScopeDefault
 
 from src.app.config import BOT_TOKEN
 from src.app.database.database import init_db
 from src.app.handlers import start, callbacks
 from src.app.utils.logger import setup_logging
+
+
+async def set_bot_commands(bot: Bot):
+    commands = [
+        BotCommand(command="pogoda", description="🌤 Погода на сегодня (или /pogoda <город>)"),
+        BotCommand(command="start", description="🚀 Главное меню и выбор дня"),
+    ]
+    try:
+        await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+        logging.info("Команды бота успешно установлены в Telegram.")
+    except Exception as e:
+        logging.warning(f"Не удалось установить команды бота в Telegram: {e}")
 
 
 async def main():
@@ -36,6 +49,9 @@ async def main():
     # Include routers
     dp.include_router(start.router)
     dp.include_router(callbacks.router)
+
+    # Register bot commands in Telegram UI
+    await set_bot_commands(bot)
 
     logging.info("Бот запущен и ожидает сообщения...")
 

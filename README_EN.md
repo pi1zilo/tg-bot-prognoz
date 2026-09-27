@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-22%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-30%20passed-success.svg)](tests/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -76,6 +76,12 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - `trust_env=False` HTTP client configuration to isolate from erroneous system proxies.
 - **Persistent User Storage**:
   - Asynchronous SQLite persistence (`aiosqlite`) storing user location, coordinates, and timezone.
+- **`/pogoda` Command for Group Chats & DMs**:
+  - Convenient bot invocation via `/pogoda` (or `/weather`) without needing to send `/start` in group chats.
+  - Instant today's weather forecast for users with a saved location.
+  - Direct query support with city parameter: `/pogoda Moscow`, `/pogoda Kazan`, `/pogoda pgt Sheregesh`.
+  - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
+  - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
 - **Robust Error Handling & Logging**:
   - Clean console output and persistent stack traces saved to `logs/errors.log`.
 
@@ -131,7 +137,7 @@ prognoz/
 │       ├── database/
 │       │   └── database.py    # SQLite initialization, users table schema & CRUD methods
 │       ├── handlers/
-│       │   ├── start.py       # /start handler, location input FSM, location selection
+│       │   ├── start.py       # /start and /pogoda handlers, location input FSM, location selection
 │       │   └── callbacks.py   # Inline button handlers (days, periods, refresh)
 │       ├── keyboards/
 │       │   └── weather.py     # Inline keyboard factories
@@ -378,7 +384,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Testing
 
-The repository features **22 automated unit tests** covering all core business logic without sending live HTTP requests.
+The repository features **30 automated unit tests** covering all core business logic without sending live HTTP requests.
 
 ### Run tests with `pytest`:
 
