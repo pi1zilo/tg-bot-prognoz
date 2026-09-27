@@ -130,29 +130,29 @@ def test_formatters_english():
 def test_keyboards_english():
     kb = get_main_menu_keyboard(lang="en")
     texts = [btn.text for row in kb.inline_keyboard for btn in row]
-    assert "🌅 Yesterday" in texts
+    assert "🕐 Yesterday" in texts
     assert "☀️ Today" in texts
-    assert "🌇 Tomorrow" in texts
+    assert "🌤 Tomorrow" in texts
     assert "📅 In 2 days" in texts
     assert "📍 Change location" in texts
-    assert "🌐 Language / Язык" in texts
+    assert "🌐 Language" in texts
 
     kb_day = get_day_forecast_keyboard(0, lang="en")
     texts_day = [btn.text for row in kb_day.inline_keyboard for btn in row]
     assert "🔎 Details" in texts_day
-    assert "◀️ Back" in texts_day
+    assert "↩️ Back" in texts_day
     assert "🔄 Refresh" in texts_day
 
     kb_details = get_details_keyboard(0, active_period="day", lang="en")
     texts_details = [btn.text for row in kb_details.inline_keyboard for btn in row]
     assert "• ☀️ Day •" in texts_details
-    assert "📋 Daily summary (3h step)" in texts_details
-    assert "◀️ Back to day" in texts_details
+    assert "📋 Daily summary" in texts_details
+    assert "↩️ Back" in texts_details
 
     kb_lang = get_language_keyboard(show_back=True, lang="en")
     assert kb_lang.inline_keyboard[0][0].text == "🇷🇺 Русский"
     assert kb_lang.inline_keyboard[0][1].text == "🇬🇧 English"
-    assert kb_lang.inline_keyboard[1][0].text == "◀️ Back"
+    assert kb_lang.inline_keyboard[1][0].text == "↩️ Back"
 
 @pytest.mark.asyncio
 async def test_first_start_prompts_language(fsm_context):

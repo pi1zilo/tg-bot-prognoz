@@ -7,7 +7,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.app.database.database import get_user, get_user_language, save_user
 from src.app.handlers.start import CityStates
-from src.app.keyboards.weather import get_day_forecast_keyboard, get_settlements_keyboard
+from src.app.keyboards.weather import (
+    get_day_forecast_keyboard,
+    get_main_menu_keyboard,
+    get_settlements_keyboard,
+)
 from src.app.services.geocoding import search_settlements
 from src.app.services.weather import get_weather_for_day
 from src.app.utils.formatters import format_daily_weather
@@ -124,24 +128,84 @@ async def cmd_pogoda(message: Message, command: CommandObject, state: FSMContext
 async def cmd_city(message: Message, command: CommandObject, state: FSMContext):
     user_id = message.from_user.id
     user_lang = await get_user_language(user_id)
+    city_query = command.args.strip() if command.args else ""
 
-    # If arguments provided (e.g. /city Kazan), delegate to cmd_pogoda logic
-    if command.args and command.args.strip():
-        await cmd_pogoda(message, command, state)
-        return
+    if city_query:
+        msg = await message.answer(t("searching", user_lang))
+        try:
+            places = await search_settlements(city_query, lang=user_lang)
+        except RuntimeError:
+            await msg.edit_text(t("search_service_error", user_lang))
+            return
+        except Exception as e:
+            logger.error(f"Error searching settlements for /city '{city_query}': {e}", exc_info=True)
+            await msg.edit_text(t("search_error", user_lang))
+            return
 
-    user = await get_user(user_id)
-    if user and user.get("city"):
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=t("btn_change_city", user_lang), callback_data="change_city")]
-            ]
-        )
-        await message.answer(
-            t("current_city_info", user_lang, city=user["city"]),
+        if not places:
+            await msg.edit_text(
+                t("not_found", user_lang, city_query=city_query),
+                parse_mode="HTML"
+            )
+            return
+
+        if len(places) == 1:
+            place = places[0]
+            await save_user(
+                telegram_id=user_id,
+                city=place["display_name"],
+                latitude=place["latitude"],
+                longitude=place["longitude"],
+                timezone=place["timezone"]
+            )
+            await state.clear()
+
+            await msg.edit_text(
+                t("city_set_success", user_lang, city=place["display_name"]),
+                parse_mode="HTML"
+            )
+            await message.answer(
+                t("select_day", user_lang),
+                reply_markup=get_main_menu_keyboard(user_lang)
+            )
+            return
+
+        # Multiple candidates found
+        await state.update_data(city_candidates=places)
+        keyboard = get_settlements_keyboard(places, lang=user_lang)
+        await msg.edit_text(
+            t("multiple_found", user_lang, city_query=city_query),
             reply_markup=keyboard,
             parse_mode="HTML"
         )
+        return
+
+    # No argument provided:
+    user = await get_user(user_id)
+    if user and user.get("city"):
+        if message.chat.type in ("group", "supergroup"):
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=t("btn_change_city", user_lang), callback_data="change_city")]
+                ]
+            )
+            await message.answer(
+                t("current_city_info_group", user_lang, city=user["city"]),
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        else:
+            await state.set_state(CityStates.waiting_for_city)
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=t("btn_cancel", user_lang), callback_data="cancel_city_search")]
+                ]
+            )
+            await message.answer(
+                t("city_cmd_help_and_prompt", user_lang, city=user["city"]),
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
     else:
         if message.chat.type in ("group", "supergroup"):
             await message.answer(t("group_no_city", user_lang), parse_mode="HTML")
@@ -154,3 +218,4 @@ async def cmd_city(message: Message, command: CommandObject, state: FSMContext):
 async def cmd_help(message: Message):
     user_lang = await get_user_language(message.from_user.id)
     await message.answer(t("help_message", user_lang), parse_mode="HTML")
+

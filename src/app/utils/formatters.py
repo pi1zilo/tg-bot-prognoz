@@ -127,6 +127,49 @@ def fmt_temp_range(t_min: float | int | None, t_max: float | int | None, lang: s
         return f"{str_min}°C"
     return f"{str_min}...{str_max}°C"
 
+
+def get_uv_level(uv: float | int | None, lang: str = "ru") -> str:
+    """Returns descriptive danger level for WHO UV index."""
+    if uv is None:
+        return ""
+    val = round(uv)
+    if val <= 2:
+        return "низкий" if lang == "ru" else "low"
+    if val <= 5:
+        return "умеренный" if lang == "ru" else "moderate"
+    if val <= 7:
+        return "высокий" if lang == "ru" else "high"
+    if val <= 10:
+        return "очень высокий" if lang == "ru" else "very high"
+    return "экстремальный" if lang == "ru" else "extreme"
+
+
+def fmt_uv_index(uv: float | int | None, lang: str = "ru") -> str:
+    """Formats UV index line, e.g. '☀️ UV-индекс: 3 (умеренный)'."""
+    if uv is None:
+        return ""
+    val = round(uv, 1)
+    display_val = int(val) if val == int(val) else val
+    desc = get_uv_level(uv, lang=lang)
+    if lang == "en":
+        return f"☀️ UV index: {display_val} ({desc})"
+    return f"☀️ UV-индекс: {display_val} ({desc})"
+
+
+def fmt_precip_short(precip_prob: int | None, precip_mm: float | int | None, lang: str = "ru") -> str:
+    """Formats short precipitation for hourly items, e.g. 💧 20% or 💧 70% (0.8 мм)."""
+    prob = int(round(precip_prob)) if precip_prob is not None else 0
+    mm = float(precip_mm) if precip_mm is not None else 0.0
+    unit = "мм" if lang == "ru" else "mm"
+
+    if mm >= 0.1:
+        mm_str = f"{mm:.1f}" if mm % 1 != 0 else str(int(mm))
+        if prob > 0:
+            return f"💧 {prob}% ({mm_str} {unit})"
+        return f"💧 {mm_str} {unit}"
+    return f"💧 {prob}%"
+
+
 def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:
     city_clean = clean_city_display(city)
     title_name = get_day_title(offset, lang=lang)
@@ -241,6 +284,19 @@ def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru"
                 f"💨 Ветер: {wind_part}",
                 f"☁️ Облачность: {cloud_cover}%",
             ]
+
+        # Sunrise, sunset, and UV index for Today
+        sunrise = weather.get("sunrise")
+        sunset = weather.get("sunset")
+        uv_max = weather.get("uv_index_max")
+        if sunrise:
+            lines.append(f"🌅 {'Sunrise' if lang == 'en' else 'Восход'}: {sunrise}")
+        if sunset:
+            lines.append(f"🌇 {'Sunset' if lang == 'en' else 'Закат'}: {sunset}")
+        if uv_max is not None:
+            uv_line = fmt_uv_index(uv_max, lang=lang)
+            if uv_line:
+                lines.append(uv_line)
     else:
         # Other days: Yesterday, Tomorrow, In 2 days
         emoji, desc = get_weather_info(w_code, lang=lang)
@@ -291,6 +347,19 @@ def format_daily_weather(city: str, offset: int, weather: dict, lang: str = "ru"
                 f"☁️ Облачность: {cloud_cover}%",
             ])
 
+        # Sunrise, sunset, and UV index for other days
+        sunrise = weather.get("sunrise")
+        sunset = weather.get("sunset")
+        uv_max = weather.get("uv_index_max")
+        if sunrise:
+            lines.append(f"🌅 {'Sunrise' if lang == 'en' else 'Восход'}: {sunrise}")
+        if sunset:
+            lines.append(f"🌇 {'Sunset' if lang == 'en' else 'Закат'}: {sunset}")
+        if uv_max is not None:
+            uv_line = fmt_uv_index(uv_max, lang=lang)
+            if uv_line:
+                lines.append(uv_line)
+
     return "\n".join(lines)
 
 def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "ru") -> str:
@@ -339,6 +408,7 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             wind_dir = get_wind_direction(h.get("wind_direction"), lang=lang)
 
             precip_prob = h.get("precipitation_probability", 0)
+            precip_part = fmt_precip_short(precip_prob, h.get("precipitation"), lang=lang)
             wind_spd = h.get("wind_speed", 0.0)
             if isinstance(wind_spd, float):
                 wind_spd_str = f"{wind_spd:.1f}" if wind_spd % 1 != 0 else str(int(wind_spd))
@@ -350,7 +420,7 @@ def format_summary_weather(city: str, offset: int, weather: dict, lang: str = "r
             # Example: <code>00:00</code> ☁️ +11°  💧 0%  💨 4.8м/с ЮЮВ
             row = (
                 f"<code>{h['time']}</code> {icon} {temp_str}°  "
-                f"💧 {precip_prob}%  💨 {wind_spd_str}{speed_unit}{wind_dir_part}"
+                f"{precip_part}  💨 {wind_spd_str}{speed_unit}{wind_dir_part}"
             )
             lines.append(row)
         lines.append("")
@@ -396,11 +466,12 @@ def format_period_weather(city: str, offset: int, weather: dict, period: str, la
             wind_spd_str = str(wind_spd)
 
         prob = h.get("precipitation_probability", 0)
+        precip_part = fmt_precip_short(prob, h.get("precipitation"), lang=lang)
 
         # Example: <code>00:00</code> ☁️ +11°  💧 0%  💨 4.8м/с
         row = (
             f"<code>{h['time']}</code> {icon} {temp_str}°  "
-            f"💧 {prob}%  💨 {wind_spd_str}{speed_unit}"
+            f"{precip_part}  💨 {wind_spd_str}{speed_unit}"
         )
         lines.append(row)
 

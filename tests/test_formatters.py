@@ -68,6 +68,9 @@ def create_mock_weather():
         "wind_direction": "В",
         "cloud_cover": 40,
         "weather_code": 1,
+        "sunrise": "06:21",
+        "sunset": "18:15",
+        "uv_index_max": 3.0,
         "hours": hours
     }
 
@@ -101,35 +104,47 @@ def test_format_period_weather():
     assert "💧 60%" in day_text  # hour 14 precip check
 
 def test_keyboards_details():
-    # Day forecast keyboard should now include details button for any offset
+    # Day forecast keyboard should include details and refresh in row 1, back in row 2
     kb_today = get_day_forecast_keyboard(0)
-    buttons_flat = [btn for row in kb_today.inline_keyboard for btn in row]
-    assert any(btn.callback_data == "details:0:summary" for btn in buttons_flat)
+    assert len(kb_today.inline_keyboard) == 2
+    row0_cbs = [btn.callback_data for btn in kb_today.inline_keyboard[0]]
+    assert "details:0:summary" in row0_cbs
+    assert "refresh:0" in row0_cbs
+    row1_cbs = [btn.callback_data for btn in kb_today.inline_keyboard[1]]
+    assert "main_menu" in row1_cbs
 
     kb_tomorrow = get_day_forecast_keyboard(1)
     buttons_flat_tom = [btn for row in kb_tomorrow.inline_keyboard for btn in row]
     assert any(btn.callback_data == "details:1:summary" for btn in buttons_flat_tom)
 
-    # Details keyboard in summary mode
+    # Details keyboard in summary mode (2x2 periods + refresh/back)
     details_summary_kb = get_details_keyboard(0, active_period="summary")
-    d_buttons = [btn for row in details_summary_kb.inline_keyboard for btn in row]
-    callbacks = [btn.callback_data for btn in d_buttons]
-    assert "details:0:night" in callbacks
-    assert "details:0:morning" in callbacks
-    assert "details:0:day" in callbacks
-    assert "details:0:evening" in callbacks
-    assert "day:0" in callbacks
-    assert "refresh_details:0:summary" in callbacks
+    assert len(details_summary_kb.inline_keyboard) == 3
+    row0 = [btn.callback_data for btn in details_summary_kb.inline_keyboard[0]]
+    assert row0 == ["details:0:night", "details:0:morning"]
+    row1 = [btn.callback_data for btn in details_summary_kb.inline_keyboard[1]]
+    assert row1 == ["details:0:day", "details:0:evening"]
+    row2 = [btn.callback_data for btn in details_summary_kb.inline_keyboard[2]]
+    assert row2 == ["refresh_details:0:summary", "day:0"]
 
-    # Details keyboard in day period mode
+    # Details keyboard in day period mode (adds row with back to daily summary)
     details_day_kb = get_details_keyboard(0, active_period="day")
     d_buttons_day = [btn for row in details_day_kb.inline_keyboard for btn in row]
     callbacks_day = [btn.callback_data for btn in d_buttons_day]
-    # Button to return to summary should be present
     assert "details:0:summary" in callbacks_day
-    # Active button should be marked with dots
     day_btn = [btn for btn in d_buttons_day if btn.callback_data == "details:0:day"][0]
     assert "•" in day_btn.text
+
+def test_keyboards_main_menu_layout():
+    from src.app.keyboards.weather import get_main_menu_keyboard
+    kb = get_main_menu_keyboard(lang="ru")
+    assert len(kb.inline_keyboard) == 3
+    # Row 1: Yesterday, Today
+    assert [btn.callback_data for btn in kb.inline_keyboard[0]] == ["day:-1", "day:0"]
+    # Row 2: Tomorrow, After tomorrow
+    assert [btn.callback_data for btn in kb.inline_keyboard[1]] == ["day:1", "day:2"]
+    # Row 3: Change city, Change language
+    assert [btn.callback_data for btn in kb.inline_keyboard[2]] == ["change_city", "change_language"]
 
 def test_fmt_temp_range():
     from src.app.utils.formatters import fmt_temp_c, fmt_temp_range
@@ -141,6 +156,25 @@ def test_fmt_temp_range():
     assert fmt_temp_range(-2, 3) == "-2...+3°C"
     assert fmt_temp_range(15, 15) == "+15°C"
     assert fmt_temp_range(16, 4) == "+4...+16°C"
+
+def test_uv_and_precip_helpers():
+    from src.app.utils.formatters import fmt_precip_short, fmt_uv_index, get_uv_level
+    assert get_uv_level(1, lang="ru") == "низкий"
+    assert get_uv_level(4, lang="ru") == "умеренный"
+    assert get_uv_level(6, lang="ru") == "высокий"
+    assert get_uv_level(9, lang="ru") == "очень высокий"
+    assert get_uv_level(12, lang="ru") == "экстремальный"
+    assert get_uv_level(4, lang="en") == "moderate"
+
+    assert fmt_uv_index(3, lang="ru") == "☀️ UV-индекс: 3 (умеренный)"
+    assert fmt_uv_index(3.4, lang="en") == "☀️ UV index: 3.4 (moderate)"
+    assert fmt_uv_index(None) == ""
+
+    assert fmt_precip_short(20, 0.0, lang="ru") == "💧 20%"
+    assert fmt_precip_short(45, 0.0, lang="ru") == "💧 45%"
+    assert fmt_precip_short(70, 0.8, lang="ru") == "💧 70% (0.8 мм)"
+    assert fmt_precip_short(70, 0.8, lang="en") == "💧 70% (0.8 mm)"
+    assert fmt_precip_short(0, 0.8, lang="ru") == "💧 0.8 мм"
 
 def test_format_daily_weather_today():
     weather = create_mock_weather()
@@ -154,6 +188,9 @@ def test_format_daily_weather_today():
     assert "💧 Осадки: 60% (0.5 мм)" in text
     assert "💨 Ветер: 3.5 м/с, В" in text
     assert "☁️ Облачность: 40%" in text
+    assert "🌅 Восход: 06:21" in text
+    assert "🌇 Закат: 18:15" in text
+    assert "☀️ UV-индекс: 3 (умеренный)" in text
 
 def test_format_daily_weather_other_day():
     weather = create_mock_weather()
@@ -166,3 +203,7 @@ def test_format_daily_weather_other_day():
     assert "💧 Осадки: 60% (0.5 мм)" in text
     assert "💨 Ветер: 3.5 м/с, В" in text
     assert "☁️ Облачность: 40%" in text
+    assert "🌅 Восход: 06:21" in text
+    assert "🌇 Закат: 18:15" in text
+    assert "☀️ UV-индекс: 3 (умеренный)" in text
+

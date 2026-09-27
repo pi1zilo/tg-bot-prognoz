@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-59%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-65%20passed-success.svg)](tests/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -53,7 +53,7 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
 - **Bilingual Interface & Localization (EN / RU)**:
   - Prompts users to choose their preferred language (`🇷🇺 Русский` or `🇬🇧 English`) on first launch.
   - Complete localization of messages, month names, dates, search hints, WMO weather descriptions, wind compass points, and units.
-  - Switch languages anytime via main menu `[ 🌐 Language / Язык ]` or `/lang` (`/language`) command.
+  - Switch languages anytime via main menu `[ 🌐 Language ]` or `/lang` (`/language`) command.
   - Passes user language preference to Open-Meteo Geocoding API (`language="en"` / `"ru"`).
 - **Smart Settlement Geocoding**:
   - Supports all settlement types: cities, villages, hamlets, urban-type settlements (PGT), cossack villages (stanitsas), etc.
@@ -62,9 +62,9 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - Automatic handling of `e` / `ё` character equivalence during lookup.
   - Interactive selection via inline buttons when multiple matching locations exist, prioritized by CIS countries and population count.
 - **4-Day Forecast with Time Zone Awareness**:
-  - `🌅 Yesterday`: Actual historical weather for the previous day.
-  - `☀️ Today`: Current day forecast.
-  - `🌇 Tomorrow`: Next day forecast.
+  - `🕐 Yesterday`: Actual historical weather for the previous day.
+  - `☀️ Today`: Current day forecast with real-time conditions.
+  - `🌤 Tomorrow`: Next day forecast.
   - `📅 Day After Tomorrow`: Forecast for 2 days ahead.
   - Automatic local time zone resolution (`timezone`) using standard `zoneinfo`.
 - **Two Granularity Levels (Mobile-First)**:
@@ -72,7 +72,9 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
     - For **«Today»**, displays a real-time current conditions block (`🌡 Now: +<temp>°C (Feels like: +<feels>°C)`) and daily range (`🌡 Today: +<min>...+<max>°C`).
     - For **«Yesterday», «Tomorrow», «In 2 days»**, displays daily temperature range (`🌡 Temperature: +min...+max°C`) and apparent temperature range (`🤚 Feels like: +min...+max°C`).
     - Aggregated metrics include precipitation total (mm), max precipitation probability (%), wind speed with gusts and direction, and cloud cover (%).
-  - **Hourly Breakdown**: Optimized for narrow smartphone screens (320–375px), strictly 1 line per hour/interval without ugly line wraps, monospace time `<code>00:00</code>`, integer temperatures, and uncluttered wind and precipitation metrics.
+    - **Sunrise & Sunset**: Local sunrise 🌅 and sunset 🌇 times calculated specifically for the location's timezone.
+    - **Maximum UV Index**: Daily peak UV index with WHO risk category classification (☀️ low, moderate, high, very high, extreme).
+  - **Hourly Breakdown**: Optimized for narrow smartphone screens (320–375px), strictly 1 line per hour/interval without ugly line wraps, monospace time `<code>00:00</code>`, integer temperatures, and uncluttered wind and precipitation metrics with volume in mm (`💧 70% (0.8 mm)` or `💧 20%`).
 - **Historical Yesterday Archive**:
   - Integrated with Open-Meteo Historical Archive API to inspect real recorded weather for yesterday.
 - **Safe Error Handling & Callback Validation**:
@@ -91,9 +93,9 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - Convenient bot invocation via `/weather` or `/pogoda` without needing to send `/start` in group chats.
   - Instant today's weather forecast for users with a saved location.
   - Direct query support with city parameter: `/weather London`, `/pogoda Moscow`, `/pogoda пгт Шерегеш`.
-  - `/city` command: view currently saved settlement with a quick change button.
+  - **Fast City Switching `/city [city]`**: Instant geocoding and saving on single match (or interactive list on duplicates). When sent without arguments, shows current location, displays quick tip `👉 /city [city]` and enters city input state.
   - `/lang` (`/language`) command for instant language selection.
-  - `/help` command: localized reference guide for all bot commands.
+  - **Full Help Guide `/help`**: Localized guide explaining all commands and interactive navigation (day selection, period breakdowns, refresh, and back buttons).
   - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
   - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
 - **Quality Standards & CI/CD**:
@@ -111,12 +113,11 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 | 📍 Location: London (England)                             |
 |                                                           |
 | Select a day to view weather forecast:                    |
-| [ 🌅 Yesterday ]       [ ☀️ Today ]                        |
-| [ 🌇 Tomorrow ]        [ 📅 In 2 days ]                    |
-| [ 📍 Change location ]                                    |
-| [ 🌐 Language / Язык ]                                    |
+| [ 🕐 Yesterday ]             [ ☀️ Today ]                  |
+| [ 🌤 Tomorrow ]              [ 📅 In 2 days ]              |
+| [ 📍 Change city ]           [ 🌐 Language ]               |
 +-----------------------------------------------------------+
-| 📍 London · Today, September 27                           |
+| 📍 London · Today, September 28                           |
 |                                                           |
 | 🌤 Mainly clear                                           |
 | 🌡 Now: +13°C (Feels like: +11°C)                         |
@@ -124,11 +125,13 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 | 💧 Precipitation: 0% (0.0 mm)                             |
 | 💨 Wind: 4.8 m/s, SSE                                     |
 | ☁️ Cloud cover: 20%                                       |
+| ☀️ UV Index: 3 (moderate)                                 |
+| 🌅 Sunrise: 06:54 · 🌇 Sunset: 18:48                      |
 |                                                           |
-| [ 🔎 Details ]                                            |
-| [ ◀️ Back ]                  [ 🔄 Refresh ]               |
+| [ 🔎 Details ]               [ 🔄 Refresh ]               |
+| [ ↩️ Back ]                                               |
 +-----------------------------------------------------------+
-| 📍 London · Tomorrow, September 28                        |
+| 📍 London · Tomorrow, September 29                        |
 |                                                           |
 | ☀️ Clear sky                                              |
 | 🌡 Temperature: +4...+16°C                                |
@@ -136,36 +139,40 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 | 💧 Precipitation: 0% (0.0 mm)                             |
 | 💨 Wind: 3.5 m/s, S                                       |
 | ☁️ Cloud cover: 15%                                       |
+| ☀️ UV Index: 4 (moderate)                                 |
+| 🌅 Sunrise: 06:56 · 🌇 Sunset: 18:45                      |
 |                                                           |
-| [ 🔎 Details ]                                            |
-| [ ◀️ Back ]                  [ 🔄 Refresh ]               |
+| [ 🔎 Details ]               [ 🔄 Refresh ]               |
+| [ ↩️ Back ]                                               |
 +-----------------------------------------------------------+
 | 🔎 Detailed daily forecast                                |
-| 📍 London · Today, September 27                           |
+| 📍 London · Today, September 28                           |
 |                                                           |
 | 🌙 Night                                                  |
 | 00:00 🌙 +10°  💧 0%  💨 4.8m/s SSE                       |
-| 03:00 🌙 +10°  💧 0%  💨 4.8m/s SSE                       |
+| 03:00 🌙 +9°   💧 0%  💨 4.1m/s SSE                       |
 | 🌅 Morning                                                |
-| 06:00 🌤 +10°  💧 0%  💨 4.8m/s SSE                       |
-| 09:00 🌤 +10°  💧 0%  💨 4.8m/s SSE                       |
+| 06:00 🌤 +8°   💧 0%  💨 3.8m/s SSE                       |
+| 09:00 🌤 +12°  💧 0%  💨 4.5m/s S                         |
 |                                                           |
-| [ • 🌙 Night • ] [ 🌅 Morning ] [ ☀️ Day ] [ 🌇 Evening ] |
-| [ ◀️ Back to day ]           [ 🔄 Refresh ]               |
+| [ • 🌙 Night • ]             [ 🌅 Morning ]               |
+| [ ☀️ Day ]                   [ 🌆 Evening ]               |
+| [ 🔄 Refresh ]               [ ↩️ Back ]                  |
 +-----------------------------------------------------------+
 | 🔎 Hourly forecast — 🌙 Night                             |
-| 📍 London · Today, September 27                           |
+| 📍 London · Today, September 28                           |
 |                                                           |
 | 00:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
-| 01:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
-| 02:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
-| 03:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
-| 04:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
-| 05:00 🌙 +10°  💧 0%  💨 4.8m/s                           |
+| 01:00 🌙 +10°  💧 0%  💨 4.6m/s                           |
+| 02:00 🌙 +9°   💧 0%  💨 4.3m/s                           |
+| 03:00 🌙 +9°   💧 0%  💨 4.1m/s                           |
+| 04:00 🌙 +8°   💧 0%  💨 3.9m/s                           |
+| 05:00 🌙 +8°   💧 0%  💨 3.7m/s                           |
 |                                                           |
-| [ 🌙 Night ] [ 🌅 Morning ] [ ☀️ Day ] [ 🌇 Evening ]     |
+| [ • 🌙 Night • ]             [ 🌅 Morning ]               |
+| [ ☀️ Day ]                   [ 🌆 Evening ]               |
 | [ 📋 Daily summary ]                                      |
-| [ ◀️ Back to day ]           [ 🔄 Refresh ]               |
+| [ 🔄 Refresh ]               [ ↩️ Back ]                  |
 +-----------------------------------------------------------+
 ```
 
@@ -496,7 +503,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Testing & Code Quality
 
-The repository features **59 automated unit tests** covering all core business logic, API failure modes, SQLite operations, and edge cases without sending live HTTP requests.
+The repository features **65 automated unit tests** covering all core business logic, API failure modes, SQLite operations, and edge cases without sending live HTTP requests.
 
 ### Run tests with `pytest` (Recommended)
 
@@ -530,12 +537,12 @@ A pre-configured GitHub Actions workflow ([`.github/workflows/tests.yml`](.githu
 
 - [`tests/test_dates.py`](tests/test_dates.py): IANA timezone loading and relative date calculations for Russian and English.
 - [`tests/test_weather_codes.py`](tests/test_weather_codes.py): WMO weather codes and 16-point wind compass calculations (RU / EN).
-- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with temperature ranges (`+min...+max°C`), Today's real-time conditions block, compact mobile layouts (320–375px), and country deduplication.
-- [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, and English output tests.
+- [`tests/test_formatters.py`](tests/test_formatters.py): Daily, summary, and hourly forecast formatting in Russian and English with temperature ranges (`+min...+max°C`), Today's real-time conditions block, sunrise/sunset, UV index classification, precipitation volume in mm, compact mobile layouts (320–375px), and keyboard layouts.
+- [`tests/test_i18n.py`](tests/test_i18n.py): Localization dictionary, first launch language prompt, language switching, updated button labels, and English output tests.
 - [`tests/test_geocoding.py`](tests/test_geocoding.py): Settlement prefix stripping, region parsing, «е/ё» equivalence (e.g. Королёв), CIS prioritization, and multi-language geocoding.
-- [`tests/test_weather_service.py`](tests/test_weather_service.py): Network timeouts (`httpx.ConnectTimeout`), HTTP 500 server errors, malformed/empty JSON response handling, in-memory TTL caching, and cache invalidation via `force_refresh=True`.
+- [`tests/test_weather_service.py`](tests/test_weather_service.py): Network timeouts (`httpx.ConnectTimeout`), HTTP 500 server errors, malformed/empty JSON response handling, sunrise/sunset and UV-index extraction, in-memory TTL caching, and cache invalidation via `force_refresh=True`.
 - [`tests/test_database.py`](tests/test_database.py): SQLite schema initialization, language column migration in `init_db()`, user registration, city updates, and zero duplicate records in SQLite (`COUNT(*) == 1`).
-- [`tests/test_handlers.py`](tests/test_handlers.py): Commands `/start`, `/pogoda`, `/weather`, `/city`, `/help` (with/without city, in private/group chats), FSM state handling, resilient `callback_data` validation, and safe error handling without raw exception leakage.
+- [`tests/test_handlers.py`](tests/test_handlers.py): Commands `/start`, `/pogoda`, `/weather`, `/city` (with/without city, single match instant save, multi-match inline buttons), expanded `/help` guide (EN/RU), FSM state handling, resilient `callback_data` validation, and safe error handling without raw exception leakage.
 
 ---
 

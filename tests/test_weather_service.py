@@ -9,6 +9,7 @@ from src.app.services.weather import (
     fetch_weather_data,
     get_weather_for_day,
 )
+from src.app.utils.dates import get_target_date
 
 
 @pytest.mark.asyncio
@@ -75,7 +76,9 @@ async def test_weather_cache_and_force_refresh():
     mock_resp.status_code = 200
     mock_resp.raise_for_status.return_value = None
 
-    date_str = "2026-09-27"
+    target_date = get_target_date("Europe/Moscow", 0)
+    date_str = target_date.strftime("%Y-%m-%d")
+
     mock_resp.json.return_value = {
         "current": {
             "temperature_2m": 15.0,
@@ -125,7 +128,9 @@ async def test_weather_archive_for_yesterday():
     mock_resp.status_code = 200
     mock_resp.raise_for_status.return_value = None
 
-    date_str = "2026-09-26"
+    target_date = get_target_date("Europe/Moscow", -1)
+    date_str = target_date.strftime("%Y-%m-%d")
+
     mock_resp.json.return_value = {
         "hourly": {
             "time": [f"{date_str}T{h:02d}:00" for h in range(24)],
@@ -147,3 +152,45 @@ async def test_weather_archive_for_yesterday():
         called_url = mock_get.call_args[0][0]
         assert "archive" in called_url
         assert w["temp_min"] == 12.0
+
+
+@pytest.mark.asyncio
+async def test_weather_sunrise_sunset_and_uv_index():
+    """Test that daily sunrise, sunset, and UV index are properly extracted."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status.return_value = None
+
+    target_date = get_target_date("Europe/Moscow", 0)
+    date_str = target_date.strftime("%Y-%m-%d")
+
+    mock_resp.json.return_value = {
+        "daily": {
+            "time": [date_str],
+            "sunrise": [f"{date_str}T06:15"],
+            "sunset": [f"{date_str}T18:45"],
+            "uv_index_max": [4.2],
+        },
+        "hourly": {
+            "time": [f"{date_str}T{h:02d}:00" for h in range(24)],
+            "temperature_2m": [16.0] * 24,
+            "apparent_temperature": [15.0] * 24,
+            "precipitation": [0.0] * 24,
+            "precipitation_probability": [0] * 24,
+            "wind_speed_10m": [2.5] * 24,
+            "wind_direction_10m": [120] * 24,
+            "cloud_cover": [30] * 24,
+            "weather_code": [1] * 24,
+            "uv_index": [4.2 if h == 13 else 0.0 for h in range(24)],
+        },
+    }
+
+    _WEATHER_CACHE.clear()
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+        w = await get_weather_for_day(55.75, 37.61, "Europe/Moscow", offset=0)
+        assert w["sunrise"] == "06:15"
+        assert w["sunset"] == "18:45"
+        assert w["uv_index_max"] == 4.2
+        assert w["hours"][13]["uv_index"] == 4.2
+

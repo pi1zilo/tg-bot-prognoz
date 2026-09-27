@@ -566,6 +566,10 @@ async def test_cmd_help_ru_and_en():
         text_ru = msg_ru.answer.call_args[0][0]
         assert "Справка по командам бота" in text_ru
         assert "/pogoda" in text_ru
+        assert "/weather" in text_ru
+        assert "/city" in text_ru
+        assert "/lang" in text_ru
+        assert "Навигация по кнопкам" in text_ru
 
     # EN user
     msg_en = AsyncMock(spec=Message)
@@ -578,16 +582,22 @@ async def test_cmd_help_ru_and_en():
         text_en = msg_en.answer.call_args[0][0]
         assert "Bot Commands Help" in text_en
         assert "/weather" in text_en
+        assert "/pogoda" in text_en
+        assert "/city" in text_en
+        assert "/lang" in text_en
+        assert "Button navigation" in text_en
 
 
 @pytest.mark.asyncio
 async def test_cmd_city_with_saved_user(fsm_context):
     from aiogram.filters import CommandObject
 
+    from src.app.handlers.start import CityStates
     from src.app.handlers.weather import cmd_city
 
     msg = AsyncMock(spec=Message)
     msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
     msg.answer = AsyncMock()
     cmd = CommandObject(prefix="/", command="city", args=None)
 
@@ -603,6 +613,118 @@ async def test_cmd_city_with_saved_user(fsm_context):
         text = msg.answer.call_args[0][0]
         assert "Санкт-Петербург" in text
         assert "сохраненное место" in text
+        assert await fsm_context.get_state() == CityStates.waiting_for_city.state
+
+
+@pytest.mark.asyncio
+async def test_cmd_city_with_argument_single_match(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_city
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
+    status_msg = AsyncMock(spec=Message)
+    status_msg.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=status_msg)
+    cmd = CommandObject(prefix="/", command="city", args="Казань")
+
+    mock_places = [
+        {
+            "name": "Казань",
+            "display_name": "Казань (Татарстан, Россия)",
+            "short_name": "Казань",
+            "latitude": 55.79,
+            "longitude": 49.12,
+            "timezone": "Europe/Moscow",
+            "country": "Россия"
+        }
+    ]
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
+         patch("src.app.handlers.weather.save_user", new_callable=AsyncMock) as mock_save:
+        await cmd_city(msg, cmd, fsm_context)
+
+        mock_save.assert_awaited_once_with(
+            telegram_id=1,
+            city="Казань (Татарстан, Россия)",
+            latitude=55.79,
+            longitude=49.12,
+            timezone="Europe/Moscow"
+        )
+        assert await fsm_context.get_state() is None
+        status_msg.edit_text.assert_awaited_once()
+        assert "успешно установлен" in status_msg.edit_text.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_cmd_city_with_argument_multiple_matches(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_city
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
+    status_msg = AsyncMock(spec=Message)
+    status_msg.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=status_msg)
+    cmd = CommandObject(prefix="/", command="city", args="Березовка")
+
+    mock_places = [
+        {
+            "name": "Березовка",
+            "display_name": "Березовка (Красноярский Край, Россия)",
+            "short_name": "Березовка (Красноярский край)",
+            "latitude": 56.02,
+            "longitude": 93.07,
+            "timezone": "Asia/Krasnoyarsk",
+            "country": "Россия"
+        },
+        {
+            "name": "Березовка",
+            "display_name": "Березовка (Пермский Край, Россия)",
+            "short_name": "Березовка (Пермский край)",
+            "latitude": 57.62,
+            "longitude": 57.26,
+            "timezone": "Asia/Yekaterinburg",
+            "country": "Россия"
+        }
+    ]
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places):
+        await cmd_city(msg, cmd, fsm_context)
+
+        data = await fsm_context.get_data()
+        assert "city_candidates" in data
+        assert len(data["city_candidates"]) == 2
+        status_msg.edit_text.assert_awaited_once()
+        assert "несколько мест" in status_msg.edit_text.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_cmd_city_with_argument_not_found(fsm_context):
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_city
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
+    status_msg = AsyncMock(spec=Message)
+    status_msg.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=status_msg)
+    cmd = CommandObject(prefix="/", command="city", args="НесуществующийГородXYZ")
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=[]):
+        await cmd_city(msg, cmd, fsm_context)
+
+        status_msg.edit_text.assert_awaited_once()
+        assert "не найден" in status_msg.edit_text.call_args[0][0]
 
 
 @pytest.mark.asyncio

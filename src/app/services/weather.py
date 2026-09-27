@@ -13,6 +13,21 @@ logger = logging.getLogger(__name__)
 _WEATHER_CACHE: dict[str, tuple[float, dict]] = {}
 CACHE_TTL = 300  # 5 minutes
 
+def extract_time_hm(iso_str: str | None) -> str | None:
+    if not iso_str:
+        return None
+    try:
+        if "T" in iso_str:
+            time_part = iso_str.split("T")[1]
+            return time_part[:5]
+        if " " in iso_str:
+            time_part = iso_str.split(" ")[1]
+            return time_part[:5]
+        dt = datetime.fromisoformat(iso_str)
+        return dt.strftime("%H:%M")
+    except Exception:
+        return None
+
 async def fetch_weather_data(latitude: float, longitude: float, timezone: str, target_date: datetime, is_archive: bool = False) -> dict:
     date_str = target_date.strftime("%Y-%m-%d")
     cache_key = f"{latitude}_{longitude}_{date_str}_{is_archive}"
@@ -31,6 +46,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "start_date": date_str,
             "end_date": date_str,
             "hourly": "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+            "daily": "sunrise,sunset,uv_index_max",
             "timezone": timezone
         }
     else:
@@ -38,7 +54,8 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         params = {
             "latitude": latitude,
             "longitude": longitude,
-            "hourly": "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+            "hourly": "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index",
+            "daily": "sunrise,sunset,uv_index_max",
             "current": "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
             "timezone": timezone,
             "forecast_days": 7
@@ -108,6 +125,9 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         cloud = hourly.get("cloud_cover", [])[i] if i < len(hourly.get("cloud_cover", [])) else 0
         w_code = hourly.get("weather_code", [])[i] if i < len(hourly.get("weather_code", [])) else 0
 
+        uv_list_hourly = hourly.get("uv_index", [])
+        uv_h = uv_list_hourly[i] if uv_list_hourly and i < len(uv_list_hourly) else None
+
         if temp is not None:
             temps.append(temp)
         if app_temp is not None:
@@ -135,12 +155,54 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "wind_speed": wind_speed,
             "wind_direction": wind_dir,
             "cloud_cover": cloud,
-            "weather_code": w_code
+            "weather_code": w_code,
+            "uv_index": uv_h
         })
 
     if not hours_data:
         logger.error(f"No hourly data found after filtering for date {date_str} (lat={latitude}, lon={longitude})")
         raise ValueError("Не найдены почасовые данные для выбранной даты.")
+
+    # Parse daily sunrise, sunset, and UV index
+    daily = data.get("daily", {})
+    daily_times = daily.get("time", [])
+    target_date_str = target_date.strftime("%Y-%m-%d")
+
+    sunrise_val = None
+    sunset_val = None
+    uv_max_val = None
+
+    day_idx = None
+    for idx, d_str in enumerate(daily_times):
+        if d_str == target_date_str:
+            day_idx = idx
+            break
+
+    if day_idx is not None:
+        sunrise_list = daily.get("sunrise", [])
+        if day_idx < len(sunrise_list):
+            sunrise_val = extract_time_hm(sunrise_list[day_idx])
+        sunset_list = daily.get("sunset", [])
+        if day_idx < len(sunset_list):
+            sunset_val = extract_time_hm(sunset_list[day_idx])
+        uv_list = daily.get("uv_index_max", [])
+        if day_idx < len(uv_list):
+            uv_max_val = uv_list[day_idx]
+    elif daily_times:
+        sunrise_list = daily.get("sunrise", [])
+        if sunrise_list:
+            sunrise_val = extract_time_hm(sunrise_list[0])
+        sunset_list = daily.get("sunset", [])
+        if sunset_list:
+            sunset_val = extract_time_hm(sunset_list[0])
+        uv_list = daily.get("uv_index_max", [])
+        if uv_list:
+            uv_max_val = uv_list[0]
+
+    if uv_max_val is None:
+        hourly_uvs = [h["uv_index"] for h in hours_data if h.get("uv_index") is not None]
+        if hourly_uvs:
+            uv_max_val = max(hourly_uvs)
 
     # Calculate current weather block
     current_data = None
@@ -203,6 +265,9 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         "median_wind_dir_deg": median_wind_dir,
         "cloud_cover": round(avg_cloud_cover),
         "weather_code": median_weather_code,
+        "sunrise": sunrise_val,
+        "sunset": sunset_val,
+        "uv_index_max": round(uv_max_val, 1) if uv_max_val is not None else None,
         "hours": hours_data,
         "current": current_data
     }

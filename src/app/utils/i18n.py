@@ -84,30 +84,63 @@ MESSAGES: dict[str, dict[str, str]] = {
         "details_already_current": "Подробный прогноз уже актуален!",
         "help_message": (
             "📖 <b>Справка по командам бота:</b>\n\n"
+            "🔹 <b>Доступные команды:</b>\n"
             "• <code>/start</code> — Главное меню и выбор дня прогноза\n"
-            "• <code>/pogoda</code> или <code>/weather</code> — Погода на сегодня в сохраненном месте\n"
-            "• <code>/pogoda &lt;город&gt;</code> — Погода в указанном месте (например: <code>/pogoda Сочи</code>)\n"
-            "• <code>/city</code> — Просмотр или изменение текущего города\n"
-            "• <code>/lang</code> — Смена языка интерфейса (RU / EN)\n"
-            "• <code>/help</code> — Это справочное сообщение"
+            "• <code>/pogoda [город]</code> или <code>/weather [город]</code> — Погода на сегодня "
+            "(для сохранённого места или указанного города, например: <code>/pogoda Сочи</code>)\n"
+            "• <code>/city [город]</code> — Быстрая смена города или просмотр текущего "
+            "(например: <code>/city Казань</code>)\n"
+            "• <code>/lang</code> — Смена языка интерфейса (Русский / English)\n"
+            "• <code>/help</code> — Это справочное сообщение\n\n"
+            "🔹 <b>Навигация по кнопкам:</b>\n"
+            "• <b>Дни:</b> 🕐 Вчера, ☀️ Сегодня, 🌤 Завтра, 📅 Послезавтра — переключение дневной сводки\n"
+            "• <b>Подробный прогноз:</b> кнопка «🔎 Подробнее» открывает детализацию по времени суток "
+            "(🌙 Ночь, 🌅 Утро, ☀️ День, 🌇 Вечер) и часам с вероятностью осадков (💧) и ветром (💨)\n"
+            "• <b>Восход и закат:</b> в сводке отображаются время восхода 🌅, заката 🌇 и UV-индекс ☀️\n"
+            "• <b>Смена города и языка:</b> кнопки «📍 Сменить город» и «🌐 Язык» для быстрой настройки\n"
+            "• <b>Обновление:</b> кнопка «🔄 Обновить» загружает самые свежие данные\n"
+            "• <b>Возврат:</b> кнопка «↩️ Назад» возвращает на предыдущий экран"
         ),
         "current_city_info": (
             "📍 Текущее сохраненное место: <b>{city}</b>\n\n"
-            "Вы можете изменить его с помощью кнопки ниже или ввести:\n"
-            "👉 <code>/pogoda &lt;город&gt;</code>"
+            "💡 Чтобы быстро сменить город, отправьте команду:\n"
+            "👉 <code>/city [название города]</code> (например: <code>/city Казань</code>)\n\n"
+            "Или напишите название города, села или деревни в ответ на это сообщение:"
         ),
+        "current_city_info_group": (
+            "📍 Текущее сохраненное место: <b>{city}</b>\n\n"
+            "💡 Чтобы узнать погоду в другом городе, отправьте:\n"
+            "👉 <code>/pogoda [город]</code>\n\n"
+            "Или смените сохранённый город командой:\n"
+            "👉 <code>/city [город]</code>"
+        ),
+        "city_cmd_help_and_prompt": (
+            "📍 Текущее сохраненное место: <b>{city}</b>\n\n"
+            "💡 <b>Быстрая смена города:</b>\n"
+            "Вы можете отправить команду с названием города:\n"
+            "👉 <code>/city Казань</code>\n\n"
+            "Или просто напишите название города, села или деревни в ответ на это сообщение:"
+        ),
+        "sunrise_label": "Восход",
+        "sunset_label": "Закат",
+        "uv_index_label": "UV-индекс",
+        "uv_low": "низкий",
+        "uv_moderate": "умеренный",
+        "uv_high": "высокий",
+        "uv_very_high": "очень высокий",
+        "uv_extreme": "экстремальный",
         # Keyboard buttons
-        "btn_yesterday": "🌅 Вчера",
+        "btn_yesterday": "🕐 Вчера",
         "btn_today": "☀️ Сегодня",
-        "btn_tomorrow": "🌇 Завтра",
+        "btn_tomorrow": "🌤 Завтра",
         "btn_after_tomorrow": "📅 Послезавтра",
-        "btn_change_city": "📍 Сменить город / село",
-        "btn_change_lang": "🌐 Язык / Language",
+        "btn_change_city": "📍 Сменить город",
+        "btn_change_lang": "🌐 Язык",
         "btn_details": "🔎 Подробнее",
-        "btn_back": "◀️ Назад",
+        "btn_back": "↩️ Назад",
         "btn_refresh": "🔄 Обновить",
-        "btn_back_to_day": "◀️ К прогнозу дня",
-        "btn_daily_summary": "📋 Сводка за день (шаг 3 ч)",
+        "btn_back_to_day": "↩️ Назад",
+        "btn_daily_summary": "📋 Сводка за день",
         "btn_cancel": "❌ Отмена",
         "period_night": "🌙 Ночь",
         "period_morning": "🌅 Утро",
@@ -198,30 +231,63 @@ MESSAGES: dict[str, dict[str, str]] = {
         "data_updated": "Data updated!",
         "help_message": (
             "📖 <b>Bot Commands Help:</b>\n\n"
+            "🔹 <b>Available commands:</b>\n"
             "• <code>/start</code> — Main menu and forecast day selection\n"
-            "• <code>/weather</code> or <code>/pogoda</code> — Today's weather for your saved location\n"
-            "• <code>/weather &lt;city&gt;</code> — Weather for a specified location (e.g.: <code>/weather London</code>)\n"
-            "• <code>/city</code> — View or change saved location\n"
-            "• <code>/lang</code> — Switch interface language (RU / EN)\n"
-            "• <code>/help</code> — Show this help message"
+            "• <code>/weather [city]</code> or <code>/pogoda [city]</code> — Today's weather "
+            "(for saved location or specified city, e.g.: <code>/weather London</code>)\n"
+            "• <code>/city [city]</code> — Quick city change or view current location "
+            "(e.g.: <code>/city London</code>)\n"
+            "• <code>/lang</code> — Switch interface language (English / Русский)\n"
+            "• <code>/help</code> — Show this help message\n\n"
+            "🔹 <b>Button navigation:</b>\n"
+            "• <b>Days:</b> 🕐 Yesterday, ☀️ Today, 🌤 Tomorrow, 📅 In 2 days — switch summary for the chosen day\n"
+            "• <b>Detailed forecast:</b> «🔎 Details» button opens time-of-day breakdowns "
+            "(🌙 Night, 🌅 Morning, ☀️ Day, 🌇 Evening) and hours with precipitation (💧) and wind (💨)\n"
+            "• <b>Sun & UV:</b> day summaries display sunrise 🌅, sunset 🌇 times, and UV index ☀️\n"
+            "• <b>Location & Language:</b> «📍 Change location» and «🌐 Language» buttons for quick setup\n"
+            "• <b>Refresh:</b> «🔄 Refresh» button fetches the latest weather data\n"
+            "• <b>Back:</b> «↩️ Back» button navigates to the previous screen"
         ),
         "current_city_info": (
             "📍 Current saved location: <b>{city}</b>\n\n"
-            "You can change it using the button below or by using:\n"
-            "👉 <code>/weather &lt;city&gt;</code>"
+            "💡 To quickly change the city, send the command:\n"
+            "👉 <code>/city [city name]</code> (e.g.: <code>/city London</code>)\n\n"
+            "Or reply with the name of your city, town, or village to this message:"
         ),
+        "current_city_info_group": (
+            "📍 Current saved location: <b>{city}</b>\n\n"
+            "💡 To check weather in another city, send:\n"
+            "👉 <code>/weather [city]</code>\n\n"
+            "Or change default location with:\n"
+            "👉 <code>/city [city]</code>"
+        ),
+        "city_cmd_help_and_prompt": (
+            "📍 Current saved location: <b>{city}</b>\n\n"
+            "💡 <b>Quick city change:</b>\n"
+            "You can send the command with the city name:\n"
+            "👉 <code>/city London</code>\n\n"
+            "Or simply reply with the name of your city, town, or village to this message:"
+        ),
+        "sunrise_label": "Sunrise",
+        "sunset_label": "Sunset",
+        "uv_index_label": "UV index",
+        "uv_low": "low",
+        "uv_moderate": "moderate",
+        "uv_high": "high",
+        "uv_very_high": "very high",
+        "uv_extreme": "extreme",
         # Keyboard buttons
-        "btn_yesterday": "🌅 Yesterday",
+        "btn_yesterday": "🕐 Yesterday",
         "btn_today": "☀️ Today",
-        "btn_tomorrow": "🌇 Tomorrow",
+        "btn_tomorrow": "🌤 Tomorrow",
         "btn_after_tomorrow": "📅 In 2 days",
         "btn_change_city": "📍 Change location",
-        "btn_change_lang": "🌐 Language / Язык",
+        "btn_change_lang": "🌐 Language",
         "btn_details": "🔎 Details",
-        "btn_back": "◀️ Back",
+        "btn_back": "↩️ Back",
         "btn_refresh": "🔄 Refresh",
-        "btn_back_to_day": "◀️ Back to day",
-        "btn_daily_summary": "📋 Daily summary (3h step)",
+        "btn_back_to_day": "↩️ Back",
+        "btn_daily_summary": "📋 Daily summary",
         "btn_cancel": "❌ Cancel",
         "period_night": "🌙 Night",
         "period_morning": "🌅 Morning",
