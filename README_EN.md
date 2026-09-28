@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-65%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-98%20passed-success.svg)](tests/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -231,7 +231,7 @@ prognoz/
 │       │   ├── logger.py      # Console logger & file logger configuration
 │       │   └── weather_codes.py # WMO code mapping & wind compass calculations (RU / EN)
 │       └── config.py          # Environment settings loader
-├── tests/                     # Automated unit test suite (65 tests)
+├── tests/                     # Automated unit test suite (98 tests)
 │   ├── conftest.py            # sys.path configuration, isolated test SQLite DB & fixtures
 │   ├── test_database.py       # SQLite schema, migration and CRUD operations
 │   ├── test_dates.py          # Date offset and timezone tests
@@ -503,7 +503,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Testing & Code Quality
 
-The repository features **65 automated unit tests** covering all core business logic, API failure modes, SQLite operations, and edge cases without sending live HTTP requests.
+The repository features **98 automated unit tests** covering all core business logic, API failure modes, SQLite operations, and edge cases without sending live HTTP requests.
 
 ### Run tests with `pytest` (Recommended)
 

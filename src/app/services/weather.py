@@ -46,7 +46,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "start_date": date_str,
             "end_date": date_str,
             "hourly": "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
-            "daily": "sunrise,sunset,uv_index_max",
+            "daily": "weather_code,sunrise,sunset,uv_index_max",
             "timezone": timezone
         }
     else:
@@ -55,7 +55,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
             "latitude": latitude,
             "longitude": longitude,
             "hourly": "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index",
-            "daily": "sunrise,sunset,uv_index_max",
+            "daily": "weather_code,sunrise,sunset,uv_index_max",
             "current": "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
             "timezone": timezone,
             "forecast_days": 7
@@ -171,6 +171,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
     sunrise_val = None
     sunset_val = None
     uv_max_val = None
+    daily_w_code = None
 
     day_idx = None
     for idx, d_str in enumerate(daily_times):
@@ -188,6 +189,9 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         uv_list = daily.get("uv_index_max", [])
         if day_idx < len(uv_list):
             uv_max_val = uv_list[day_idx]
+        w_code_list = daily.get("weather_code", [])
+        if day_idx < len(w_code_list) and w_code_list[day_idx] is not None:
+            daily_w_code = w_code_list[day_idx]
     elif daily_times:
         sunrise_list = daily.get("sunrise", [])
         if sunrise_list:
@@ -198,6 +202,9 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         uv_list = daily.get("uv_index_max", [])
         if uv_list:
             uv_max_val = uv_list[0]
+        w_code_list = daily.get("weather_code", [])
+        if w_code_list and w_code_list[0] is not None:
+            daily_w_code = w_code_list[0]
 
     if uv_max_val is None:
         hourly_uvs = [h["uv_index"] for h in hours_data if h.get("uv_index") is not None]
@@ -244,6 +251,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
 
     mid_idx = len(hours_data) // 2
     median_weather_code = hours_data[mid_idx]["weather_code"] if hours_data else 0
+    final_weather_code = daily_w_code if daily_w_code is not None else median_weather_code
     median_wind_dir = hours_data[mid_idx]["wind_direction"] if hours_data else 0
     avg_cloud_cover = sum(cloud_covers) / len(cloud_covers) if cloud_covers else 0.0
 
@@ -264,7 +272,7 @@ async def fetch_weather_data(latitude: float, longitude: float, timezone: str, t
         "wind_direction": get_wind_direction(median_wind_dir),
         "median_wind_dir_deg": median_wind_dir,
         "cloud_cover": round(avg_cloud_cover),
-        "weather_code": median_weather_code,
+        "weather_code": final_weather_code,
         "sunrise": sunrise_val,
         "sunset": sunset_val,
         "uv_index_max": round(uv_max_val, 1) if uv_max_val is not None else None,

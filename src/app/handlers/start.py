@@ -81,7 +81,7 @@ async def cb_change_language(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("set_lang:"))
 async def cb_set_language(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
-    if len(parts) < 2 or parts[1] not in ("ru", "en"):
+    if len(parts) != 2 or parts[1] not in ("ru", "en"):
         logging.warning(f"Invalid set_lang callback data from user {callback.from_user.id}: {callback.data}")
         await callback.answer(t("invalid_action", "ru"), show_alert=True)
         return
@@ -179,18 +179,27 @@ async def process_city_input(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("sel_city:"))
 async def cb_select_city(callback: CallbackQuery, state: FSMContext):
     user_lang = await get_user_language(callback.from_user.id)
+    parts = callback.data.split(":")
+    if len(parts) != 2:
+        logging.warning(f"Invalid sel_city callback format from user {callback.from_user.id}: {callback.data}")
+        await callback.answer(t("invalid_action", user_lang), show_alert=True)
+        return
+
     try:
-        parts = callback.data.split(":")
         idx = int(parts[1])
-    except (IndexError, ValueError):
-        logging.warning(f"Invalid sel_city callback data from user {callback.from_user.id}: {callback.data}")
+    except ValueError:
+        logging.warning(f"Invalid sel_city callback index from user {callback.from_user.id}: {callback.data}")
         await callback.answer(t("invalid_action", user_lang), show_alert=True)
         return
 
     data = await state.get_data()
     candidates = data.get("city_candidates", [])
 
-    if not candidates or idx >= len(candidates):
+    if not candidates or idx < 0 or idx >= len(candidates):
+        logging.warning(
+            f"Out of bounds or empty candidates in sel_city from user {callback.from_user.id}: "
+            f"idx={idx}, len={len(candidates) if candidates else 0}"
+        )
         await callback.answer(t("list_outdated", user_lang), show_alert=True)
         if callback.message.chat.type == "private":
             await state.set_state(CityStates.waiting_for_city)

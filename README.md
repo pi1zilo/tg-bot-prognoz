@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-65%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-98%20passed-success.svg)](tests/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -511,7 +511,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ## 🧪 Тестирование и качество кода
 
-Проект покрыт набором из **65 автоматизированных тестов**, проверяющих всю бизнес-логику, краевые состояния внешних API и базу данных без необходимости отправки реальных сетевых запросов.
+Проект покрыт набором из **98 автоматизированных тестов**, проверяющих всю бизнес-логику, краевые состояния внешних API и базу данных без необходимости отправки реальных сетевых запросов.
 
 ### Запуск тестов через `pytest` (рекомендуется)
 

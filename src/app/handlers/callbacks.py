@@ -12,12 +12,19 @@ from src.app.utils.i18n import t
 logger = logging.getLogger(__name__)
 router = Router()
 
+ALLOWED_OFFSETS = {-1, 0, 1, 2}
+
+
 def parse_callback_offset(data: str, index: int = 1) -> int | None:
     try:
         parts = data.split(":")
-        return int(parts[index])
+        val = int(parts[index])
+        if val in ALLOWED_OFFSETS:
+            return val
+        return None
     except (IndexError, ValueError):
         return None
+
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
@@ -36,7 +43,8 @@ async def cb_main_menu(callback: CallbackQuery):
     )
     await callback.answer()
 
-@router.callback_query(F.data.startswith("day:"))
+
+@router.callback_query(F.data.startswith("day:") | F.data.startswith("weather:"))
 async def cb_day_forecast(callback: CallbackQuery):
     user_id = callback.from_user.id
     user = await get_user(user_id)
@@ -93,9 +101,8 @@ async def cb_hourly_details(callback: CallbackQuery):
         await callback.answer(t("invalid_action", user_lang), show_alert=True)
         return
 
-    try:
-        offset = int(parts[1])
-    except (IndexError, ValueError):
+    offset = parse_callback_offset(callback.data, 1)
+    if offset is None:
         logger.warning(f"Invalid offset in cb_hourly_details from user {user_id}: {callback.data}")
         await callback.answer(t("invalid_action", user_lang), show_alert=True)
         return
@@ -203,9 +210,8 @@ async def cb_refresh_details(callback: CallbackQuery):
         await callback.answer(t("invalid_action", user_lang), show_alert=True)
         return
 
-    try:
-        offset = int(parts[1])
-    except (IndexError, ValueError):
+    offset = parse_callback_offset(callback.data, 1)
+    if offset is None:
         logger.warning(f"Invalid offset in cb_refresh_details from user {user_id}: {callback.data}")
         await callback.answer(t("invalid_action", user_lang), show_alert=True)
         return

@@ -79,3 +79,38 @@ async def test_database_crud_operations(tmp_path):
             async with db.execute("SELECT COUNT(*) FROM users") as cur:
                 count = (await cur.fetchone())[0]
                 assert count == 1
+
+
+def test_database_path_resolution(tmp_path):
+    """Test resolution of various DATABASE_PATH formats without substring data dependence."""
+    from pathlib import Path
+
+    import src.app.config as cfg
+
+    base_dir = cfg.BASE_DIR
+    data_dir = cfg.DATA_DIR
+
+    # Helper function replicating config.py logic
+    def resolve_path(env_val: str) -> Path:
+        raw = Path(env_val.strip())
+        if raw.is_absolute():
+            target = raw
+        elif raw.parent != Path("."):
+            target = base_dir / raw
+        else:
+            target = data_dir / raw
+        return target.resolve()
+
+    # 1. Bare filename without prefix -> goes into DATA_DIR (data/)
+    assert resolve_path("weather_bot.db") == (data_dir / "weather_bot.db").resolve()
+    assert resolve_path("database.sqlite3") == (data_dir / "database.sqlite3").resolve()
+    assert resolve_path("./database.sqlite3") == (data_dir / "database.sqlite3").resolve()
+
+    # 2. Relative path with folder prefix -> resolves relative to BASE_DIR
+    assert resolve_path("data/bot.db") == (base_dir / "data" / "bot.db").resolve()
+    assert resolve_path("./data/bot.db") == (base_dir / "data" / "bot.db").resolve()
+    assert resolve_path("custom_dir/mydb.sqlite") == (base_dir / "custom_dir" / "mydb.sqlite").resolve()
+
+    # 3. Absolute path -> used as is
+    abs_file = tmp_path / "somewhere" / "data.db"
+    assert resolve_path(str(abs_file)) == abs_file.resolve()

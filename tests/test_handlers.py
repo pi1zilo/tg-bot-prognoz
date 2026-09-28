@@ -778,6 +778,268 @@ async def test_cmd_pogoda_search_service_error(fsm_context):
         assert "Ошибка сервиса поиска" in text
 
 
+@pytest.mark.asyncio
+async def test_cb_select_city_boundary_and_invalid_indices(fsm_context):
+    """Test city selection boundaries: -1, too large, empty list, valid 0, valid last, and malformed callbacks."""
+    from src.app.handlers.start import CityStates, cb_select_city
+
+    user = User(id=1, is_bot=False, first_name="User")
+    candidates = [
+        {"name": "Москва", "display_name": "Москва (Россия)", "latitude": 55.75, "longitude": 37.61, "timezone": "Europe/Moscow"},
+        {"name": "Можайск", "display_name": "Можайск (Московская обл., Россия)", "latitude": 55.50, "longitude": 36.03, "timezone": "Europe/Moscow"},
+        {"name": "Мурманск", "display_name": "Мурманск (Россия)", "latitude": 68.97, "longitude": 33.08, "timezone": "Europe/Moscow"},
+    ]
+
+    async def run_select(callback_data, current_candidates):
+        await fsm_context.set_data({"city_candidates": current_candidates})
+        cb = AsyncMock(spec=CallbackQuery)
+        cb.from_user = user
+        cb.data = callback_data
+        cb.message = AsyncMock(spec=Message)
+        cb.message.chat = Chat(id=1, type="private")
+        cb.message.edit_text = AsyncMock()
+        cb.message.answer = AsyncMock()
+        cb.answer = AsyncMock()
+        return cb
+
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
+
+        # 1. Negative index -1 -> MUST NOT select last candidate
+        cb_neg = await run_select("sel_city:-1", candidates)
+        await cb_select_city(cb_neg, fsm_context)
+        mock_save.assert_not_awaited()
+        cb_neg.answer.assert_awaited_once()
+        assert cb_neg.answer.call_args[1].get("show_alert") is True
+        assert await fsm_context.get_state() == CityStates.waiting_for_city.state
+
+        # 2. Too large index -> out of bounds
+        cb_large = await run_select("sel_city:99", candidates)
+        await cb_select_city(cb_large, fsm_context)
+        mock_save.assert_not_awaited()
+        cb_large.answer.assert_awaited_once()
+        assert cb_large.answer.call_args[1].get("show_alert") is True
+
+        # 3. Empty candidates list
+        cb_empty = await run_select("sel_city:0", [])
+        await cb_select_city(cb_empty, fsm_context)
+        mock_save.assert_not_awaited()
+        cb_empty.answer.assert_awaited_once()
+        assert cb_empty.answer.call_args[1].get("show_alert") is True
+
+        # 4. Valid 0 (first element)
+        cb_zero = await run_select("sel_city:0", candidates)
+        await cb_select_city(cb_zero, fsm_context)
+        mock_save.assert_awaited_once_with(
+            telegram_id=1,
+            city="Москва (Россия)",
+            latitude=55.75,
+            longitude=37.61,
+            timezone="Europe/Moscow"
+        )
+        assert await fsm_context.get_state() is None
+        mock_save.reset_mock()
+
+        # 5. Valid last index (index 2 for len 3)
+        cb_last = await run_select("sel_city:2", candidates)
+        await cb_select_city(cb_last, fsm_context)
+        mock_save.assert_awaited_once_with(
+            telegram_id=1,
+            city="Мурманск (Россия)",
+            latitude=68.97,
+            longitude=33.08,
+            timezone="Europe/Moscow"
+        )
+        assert await fsm_context.get_state() is None
+        mock_save.reset_mock()
+
+        # 6. Malformed callbacks: sel_city:, sel_city:abc, sel_city:1:2
+        for bad_cb_data in ("sel_city:", "sel_city:abc", "sel_city:1:2"):
+            cb_bad = await run_select(bad_cb_data, candidates)
+            await cb_select_city(cb_bad, fsm_context)
+            mock_save.assert_not_awaited()
+            cb_bad.answer.assert_awaited_once()
+            assert cb_bad.answer.call_args[1].get("show_alert") is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cb_data,is_valid,expected_offset", [
+    ("day:-1", True, -1),
+    ("day:0", True, 0),
+    ("day:1", True, 1),
+    ("day:2", True, 2),
+    ("weather:0", True, 0),
+    ("day:-2", False, None),
+    ("day:3", False, None),
+    ("day:999", False, None),
+    ("day:-999", False, None),
+    ("day:abc", False, None),
+    ("weather:-999", False, None),
+    ("weather:999", False, None),
+    ("weather:abc", False, None),
+    ("weather:100", False, None),
+])
+async def test_date_offset_callbacks_validation(cb_data, is_valid, expected_offset):
+    """Test date offset boundaries: -1, 0, 1, 2 are valid; -2, 3, 999, -999, abc are rejected."""
+    from src.app.handlers.callbacks import cb_day_forecast
+
+    user = User(id=1, is_bot=False, first_name="User")
+    mock_user = {
+        "city": "Москва",
+        "latitude": 55.75,
+        "longitude": 37.61,
+        "timezone": "Europe/Moscow",
+        "language": "ru"
+    }
+    mock_weather = {
+        "date_str": "25 сентября",
+        "temperature": 15.0,
+        "apparent_temperature": 14.0,
+        "precipitation_sum": 0.0,
+        "precipitation_probability": 0,
+        "wind_speed": 3.0,
+        "wind_direction": "Ю",
+        "cloud_cover": 20,
+        "weather_code": 1,
+        "hours": [],
+    }
+
+    cb = AsyncMock(spec=CallbackQuery)
+    cb.from_user = user
+    cb.data = cb_data
+    cb.message = AsyncMock(spec=Message)
+    cb.message.edit_text = AsyncMock()
+    cb.answer = AsyncMock()
+
+    with patch("src.app.handlers.callbacks.get_user", new_callable=AsyncMock, return_value=mock_user), \
+         patch("src.app.handlers.callbacks.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather) as mock_get_weather:
+        await cb_day_forecast(cb)
+
+        if is_valid:
+            mock_get_weather.assert_awaited_once_with(
+                latitude=55.75,
+                longitude=37.61,
+                timezone="Europe/Moscow",
+                offset=expected_offset
+            )
+        else:
+            mock_get_weather.assert_not_awaited()
+            cb.answer.assert_awaited_once()
+            assert cb.answer.call_args[1].get("show_alert") is True
+
+
+@pytest.mark.asyncio
+async def test_cb_cancel_city_search_fsm_scenarios(fsm_context):
+    """Verify cb_cancel_city_search cleanly exits FSM and handles users with and without city."""
+    from src.app.handlers.start import CityStates, cb_cancel_city_search
+
+    user = User(id=1, is_bot=False, first_name="User")
+
+    # 1. User with saved city in private chat
+    await fsm_context.set_state(CityStates.waiting_for_city)
+    cb1 = AsyncMock(spec=CallbackQuery)
+    cb1.from_user = user
+    cb1.data = "cancel_city_search"
+    cb1.message = AsyncMock(spec=Message)
+    cb1.message.chat = Chat(id=1, type="private")
+    cb1.message.edit_text = AsyncMock()
+    cb1.answer = AsyncMock()
+
+    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value={"city": "Москва", "language": "ru"}):
+        await cb_cancel_city_search(cb1, fsm_context)
+        assert await fsm_context.get_state() is None
+        cb1.message.edit_text.assert_awaited_once()
+        text = cb1.message.edit_text.call_args[0][0]
+        assert "Поиск отменен" in text
+        assert "Москва" in text
+
+    # 2. User without saved city in private chat
+    await fsm_context.set_state(CityStates.waiting_for_city)
+    cb2 = AsyncMock(spec=CallbackQuery)
+    cb2.from_user = user
+    cb2.data = "cancel_city_search"
+    cb2.message = AsyncMock(spec=Message)
+    cb2.message.chat = Chat(id=1, type="private")
+    cb2.message.edit_text = AsyncMock()
+    cb2.answer = AsyncMock()
+
+    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value=None):
+        await cb_cancel_city_search(cb2, fsm_context)
+        assert await fsm_context.get_state() == CityStates.waiting_for_city.state
+        cb2.message.edit_text.assert_awaited_once()
+        text = cb2.message.edit_text.call_args[0][0]
+        assert "введите название города" in text
+
+    # 3. User in group chat without saved city
+    await fsm_context.set_state(CityStates.waiting_for_city)
+    cb3 = AsyncMock(spec=CallbackQuery)
+    cb3.from_user = user
+    cb3.data = "cancel_city_search"
+    cb3.message = AsyncMock(spec=Message)
+    cb3.message.chat = Chat(id=-100123, type="group")
+    cb3.message.edit_text = AsyncMock()
+    cb3.answer = AsyncMock()
+
+    with patch("src.app.handlers.start.get_user", new_callable=AsyncMock, return_value=None):
+        await cb_cancel_city_search(cb3, fsm_context)
+        assert await fsm_context.get_state() is None
+        cb3.message.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_cb_change_city_sets_waiting_state(fsm_context):
+    """Verify cb_change_city sets FSM state to CityStates.waiting_for_city."""
+    from src.app.handlers.start import CityStates, cb_change_city
+
+    user = User(id=1, is_bot=False, first_name="User")
+    cb = AsyncMock(spec=CallbackQuery)
+    cb.from_user = user
+    cb.data = "change_city"
+    cb.message = AsyncMock(spec=Message)
+    cb.message.edit_text = AsyncMock()
+    cb.answer = AsyncMock()
+
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"):
+        await cb_change_city(cb, fsm_context)
+        assert await fsm_context.get_state() == CityStates.waiting_for_city.state
+        cb.message.edit_text.assert_awaited_once()
+        text = cb.message.edit_text.call_args[0][0]
+        assert "Введите название города" in text
+
+
+@pytest.mark.asyncio
+async def test_cmd_pogoda_weather_service_error_handling(fsm_context):
+    """Verify cmd_pogoda handles weather service error without crashing."""
+    from aiogram.filters import CommandObject
+
+    from src.app.handlers.weather import cmd_pogoda
+
+    msg = AsyncMock(spec=Message)
+    msg.from_user = User(id=1, is_bot=False, first_name="User")
+    msg.chat = Chat(id=1, type="private")
+    status_msg = AsyncMock(spec=Message)
+    status_msg.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=status_msg)
+
+    cmd = CommandObject(prefix="/", command="pogoda", args=None)
+
+    mock_user = {
+        "city": "Москва",
+        "latitude": 55.75,
+        "longitude": 37.61,
+        "timezone": "Europe/Moscow",
+        "language": "ru",
+    }
+
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=mock_user), \
+         patch("src.app.handlers.weather.get_weather_for_day", side_effect=RuntimeError("Open-Meteo outage")):
+        await cmd_pogoda(msg, cmd, fsm_context)
+        status_msg.edit_text.assert_awaited_once()
+        text = status_msg.edit_text.call_args[0][0]
+        assert "Не удалось получить прогноз" in text
+
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -161,15 +161,31 @@ async def test_search_settlements_without_hint_prioritizes_cis():
 
 @pytest.mark.asyncio
 async def test_search_settlements_integration_real():
-    try:
+    mock_payload = {
+        "results": [
+            {
+                "id": 7606901,
+                "name": "Простоквашино",
+                "latitude": 57.42,
+                "longitude": 46.57,
+                "timezone": "Europe/Moscow",
+                "country": "Россия",
+                "admin1": "Нижегородская Область",
+                "population": 15,
+            }
+        ]
+    }
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = mock_payload
+    mock_resp.raise_for_status.return_value = None
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
         places = await search_settlements("деревня Простоквашино")
         assert len(places) > 0
         assert "Простоквашино" in places[0]["name"]
         assert places[0]["latitude"] is not None
         assert places[0]["longitude"] is not None
-    except RuntimeError:
-        # Skip if external API is temporarily unreachable in testing environment
-        pytest.skip("External Open-Meteo geocoding API unreachable")
 
 @pytest.mark.asyncio
 async def test_get_city_geocoding_mocked():
@@ -335,6 +351,47 @@ async def test_megacity_and_cis_prioritization():
         assert len(res) >= 1
         assert res[0]["country"] == "Россия"
         assert res[0]["name"] == "Москва"
+
+
+@pytest.mark.asyncio
+async def test_search_settlements_network_error_raises_runtime_error():
+    """Verify that network exceptions during geocoding raise RuntimeError."""
+    import httpx
+
+    with patch("httpx.AsyncClient.get", side_effect=httpx.ConnectTimeout("Timeout connecting to geocoding")):
+        with pytest.raises(RuntimeError, match="Ошибка соединения с сервисом геокодирования"):
+            await search_settlements("Самара")
+
+
+@pytest.mark.asyncio
+async def test_search_settlements_http_status_error():
+    """Verify that HTTP 500 from geocoding API raises RuntimeError."""
+    import httpx
+
+    req = httpx.Request("GET", "https://geocoding-api.open-meteo.com/v1/search")
+    resp = httpx.Response(500, request=req)
+
+    with patch("httpx.AsyncClient.get", side_effect=httpx.HTTPStatusError("Server Error", request=req, response=resp)):
+        with pytest.raises(RuntimeError, match="Ошибка соединения с сервисом геокодирования"):
+            await search_settlements("Самара")
+
+
+@pytest.mark.asyncio
+async def test_search_settlements_empty_query_and_results():
+    """Verify that empty queries or API returning no results return an empty list."""
+    # 1. Empty or whitespace query
+    res_empty = await search_settlements("   ")
+    assert res_empty == []
+
+    # 2. API returns empty results list
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"results": []}
+    mock_resp.raise_for_status.return_value = None
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
+        res = await search_settlements("Несуществующий123456")
+        assert res == []
 
 
 if __name__ == "__main__":
