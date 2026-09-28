@@ -231,8 +231,8 @@ prognoz/
 │       │   ├── logger.py      # Console logger & file logger configuration
 │       │   └── weather_codes.py # WMO code mapping & wind compass calculations (RU / EN)
 │       └── config.py          # Environment settings loader
-├── tests/                     # Automated unit test suite (59 tests)
-│   ├── conftest.py            # sys.path configuration for pytest
+├── tests/                     # Automated unit test suite (65 tests)
+│   ├── conftest.py            # sys.path configuration, isolated test SQLite DB & fixtures
 │   ├── test_database.py       # SQLite schema, migration and CRUD operations
 │   ├── test_dates.py          # Date offset and timezone tests
 │   ├── test_formatters.py     # Message formatting & inline keyboard tests
@@ -543,6 +543,7 @@ A pre-configured GitHub Actions workflow ([`.github/workflows/tests.yml`](.githu
 - [`tests/test_weather_service.py`](tests/test_weather_service.py): Network timeouts (`httpx.ConnectTimeout`), HTTP 500 server errors, malformed/empty JSON response handling, sunrise/sunset and UV-index extraction, in-memory TTL caching, and cache invalidation via `force_refresh=True`.
 - [`tests/test_database.py`](tests/test_database.py): SQLite schema initialization, language column migration in `init_db()`, user registration, city updates, and zero duplicate records in SQLite (`COUNT(*) == 1`).
 - [`tests/test_handlers.py`](tests/test_handlers.py): Commands `/start`, `/pogoda`, `/weather`, `/city` (with/without city, single match instant save, multi-match inline buttons), expanded `/help` guide (EN/RU), FSM state handling, resilient `callback_data` validation, and safe error handling without raw exception leakage.
+- [`tests/conftest.py`](tests/conftest.py): `sys.path` configuration, complete SQLite database isolation in a temporary directory, automatic test session cleanup, and `init_test_db` fixture for tests requiring an initialized database schema.
 
 ---
 

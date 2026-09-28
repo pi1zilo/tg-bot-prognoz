@@ -233,7 +233,7 @@ prognoz/
 │       │   └── weather_codes.py # Маппинг кодов WMO в описания/эмодзи и расчёт румбов ветра (RU / EN)
 │       └── config.py          # Чтение переменных окружения (.env) и пути директорий
 ├── tests/                     # Автоматизированные тесты
-│   ├── conftest.py            # Настройка sys.path для pytest
+│   ├── conftest.py            # Настройка sys.path, изоляция тестовой SQLite БД и фикстуры
 │   ├── test_database.py       # Тесты SQLite схемы, миграций и отсутствия дубликатов
 │   ├── test_dates.py          # Тесты смещений дат и часовых поясов
 │   ├── test_formatters.py     # Тесты форматирования сообщений и генерации клавиатур
@@ -551,6 +551,7 @@ ruff check --fix .
 - [`tests/test_weather_service.py`](tests/test_weather_service.py): тестирование сетевых таймаутов (`httpx.ConnectTimeout`), ошибок сервера HTTP 500, пустого/битого ответа API, извлечения восхода, заката и UV-индекса, работы in-memory TTL-кэша и принудительного обновления через `force_refresh=True`.
 - [`tests/test_database.py`](tests/test_database.py): создание схемы таблицы `users`, миграция колонки `language` в `init_db()`, регистрация нового пользователя, обновление города и смена языка без дублирования записей в SQLite (`COUNT(*) == 1`).
 - [`tests/test_handlers.py`](tests/test_handlers.py): тестирование команд `/start`, `/pogoda`, `/weather`, `/city` (с аргументом и без, мгновенное сохранение и выбор из списка), расширенной справки `/help` (RU/EN), FSM-состояния `CityStates.waiting_for_city`, безопасного парсинга `callback_data` (устойчивость к `day:abc`, `refresh:xyz`, `sel_city:not_int` с показом alert-уведомлений), и безопасной обработки ошибок без утечки `str(e)`.
+- [`tests/conftest.py`](tests/conftest.py): конфигурация `sys.path`, полная изоляция тестовой SQLite базы данных во временной директории, автоматическая очистка после сессии тестов и фикстура `init_test_db` для тестов, требующих инициализированную схему.
 
 ---
 

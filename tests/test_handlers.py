@@ -39,7 +39,8 @@ async def test_process_city_input_single_village(fsm_context):
         }
     ]
 
-    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
          patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
         await process_city_input(message, fsm_context)
 
@@ -84,7 +85,8 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
         }
     ]
 
-    with patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.start.search_settlements", new_callable=AsyncMock, return_value=mock_places):
         await process_city_input(message, fsm_context)
 
         # Multiple places found: candidates stored in state, keyboard shown
@@ -103,7 +105,8 @@ async def test_process_city_input_multiple_candidates_and_selection(fsm_context)
     callback.message = callback_message
     callback.answer = AsyncMock()
 
-    with patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
+    with patch("src.app.handlers.start.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.start.save_user", new_callable=AsyncMock) as mock_save:
         await cb_select_city(callback, fsm_context)
         mock_save.assert_awaited_once_with(
             telegram_id=1,
@@ -204,6 +207,7 @@ async def test_cmd_pogoda_with_saved_user(fsm_context):
     }
 
     with (
+        patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"),
         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=mock_user),
         patch("src.app.handlers.weather.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather),
     ):
@@ -255,7 +259,8 @@ async def test_cmd_pogoda_with_city_argument_single_match(fsm_context):
         "hours": []
     }
 
-    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places), \
          patch("src.app.handlers.weather.save_user", new_callable=AsyncMock) as mock_save, \
          patch("src.app.handlers.weather.get_weather_for_day", new_callable=AsyncMock, return_value=mock_weather) as mock_weather_call:
         await cmd_pogoda(message, command, fsm_context)
@@ -315,7 +320,8 @@ async def test_cmd_pogoda_with_city_argument_multiple_matches(fsm_context):
         }
     ]
 
-    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places):
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=mock_places):
         await cmd_pogoda(message, command, fsm_context)
 
         data = await fsm_context.get_data()
@@ -341,7 +347,8 @@ async def test_cmd_pogoda_city_not_found(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args="НесуществующееСело")
 
-    with patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=[]):
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", new_callable=AsyncMock, return_value=[]):
         await cmd_pogoda(message, command, fsm_context)
 
         mock_status_msg.edit_text.assert_awaited_once()
@@ -361,7 +368,8 @@ async def test_cmd_pogoda_unsaved_user_in_group(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args=None)
 
-    with patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
         await cmd_pogoda(message, command, fsm_context)
 
         # In group chats, shouldn't set FSM state
@@ -385,7 +393,8 @@ async def test_cmd_pogoda_unsaved_user_in_private(fsm_context):
 
     command = CommandObject(prefix="/", command="pogoda", args=None)
 
-    with patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.get_user", new_callable=AsyncMock, return_value=None):
         await cmd_pogoda(message, command, fsm_context)
 
         # In private chat, sets waiting_for_city state
@@ -761,7 +770,8 @@ async def test_cmd_pogoda_search_service_error(fsm_context):
 
     cmd = CommandObject(prefix="/", command="pogoda", args="Самара")
 
-    with patch("src.app.handlers.weather.search_settlements", side_effect=RuntimeError("Geocoding down")):
+    with patch("src.app.handlers.weather.get_user_language", new_callable=AsyncMock, return_value="ru"), \
+         patch("src.app.handlers.weather.search_settlements", side_effect=RuntimeError("Geocoding down")):
         await cmd_pogoda(msg, cmd, fsm_context)
         status_msg.edit_text.assert_awaited_once()
         text = status_msg.edit_text.call_args[0][0]
