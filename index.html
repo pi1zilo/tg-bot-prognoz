@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Прогноз Погоды</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="theme-night">
+
+    <!-- Ambient atmospheric background mesh -->
+    <div class="ambient-bg" id="ambientBg">
+        <div class="ambient-blob-1"></div>
+        <div class="ambient-blob-2"></div>
+    </div>
+
+    <!-- Main App Container -->
+    <main class="app-container" id="appContainer">
+
+        <!-- Top Header: Location chip & quick actions -->
+        <header class="app-header">
+            <button class="location-chip" id="btnOpenSearch" title="Выбрать город">
+                <span class="location-icon">📍</span>
+                <span class="location-name" id="locationName">Москва</span>
+                <span class="location-arrow">▼</span>
+            </button>
+
+            <div class="header-actions">
+                <button class="icon-button" id="btnGeolocation" title="Мое местоположение">🎯</button>
+                <button class="icon-button" id="btnThemeToggle" title="Сменить тему">🌓</button>
+                <button class="icon-button" id="btnLangToggle" title="RU / EN">RU</button>
+            </div>
+        </header>
+
+        <!-- Day Selector Tabs -->
+        <nav class="day-selector-container">
+            <div class="day-selector" id="dayTabsGroup">
+                <button class="day-tab" data-offset="-1" id="tabYesterday">Вчера</button>
+                <button class="day-tab active" data-offset="0" id="tabToday">Сегодня</button>
+                <button class="day-tab" data-offset="1" id="tabTomorrow">Завтра</button>
+                <button class="day-tab" data-offset="2" id="tabAfterTomorrow">+2 дня</button>
+                <button class="day-tab" data-offset="week" id="tabWeek">7 дней</button>
+            </div>
+        </nav>
+
+        <!-- Hero Weather Card -->
+        <section class="card hero-card" id="heroCard">
+            <div class="hero-top-row">
+                <span class="date-badge" id="heroDate">Пятница, 16 октября</span>
+                <span class="condition-pill" id="heroConditionBadge">
+                    <span id="heroConditionEmoji">🌤</span>
+                    <span id="heroConditionText">Облачно</span>
+                </span>
+            </div>
+
+            <div class="hero-visual" id="heroVisual">
+                <!-- Injected via WeatherIcons.getIcon() -->
+            </div>
+
+            <div class="hero-temp-wrapper">
+                <div class="hero-temp" id="heroTemp">+14°</div>
+                <div class="hero-feels-like" id="heroFeelsLike">Ощущается как +13°</div>
+                <div class="hero-min-max-bar" id="heroMinMax">
+                    <span>Мин: <span class="accent" id="heroMinTemp">+9°</span></span>
+                    <span>•</span>
+                    <span>Макс: <span class="accent" id="heroMaxTemp">+16°</span></span>
+                </div>
+            </div>
+
+            <div class="hero-quick-metrics">
+                <div class="quick-metric-item">
+                    <span class="quick-metric-label" id="labelHeroPrecip">ОСАДКИ</span>
+                    <span class="quick-metric-value" id="heroPrecip">0 мм (10%)</span>
+                </div>
+                <div class="quick-metric-item">
+                    <span class="quick-metric-label" id="labelHeroWind">ВЕТЕР</span>
+                    <span class="quick-metric-value" id="heroWind">3.8 м/с СЗ</span>
+                </div>
+                <div class="quick-metric-item">
+                    <span class="quick-metric-label" id="labelHeroUv">УФ-ИНДЕКС</span>
+                    <span class="quick-metric-value" id="heroUv">2 • Низкий</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Hourly Forecast Slider -->
+        <section class="card" id="hourlySection">
+            <div class="section-header">
+                <h2 class="section-title" id="titleHourlyForecast">⏱ ПОЧАСОВОЙ ПРОГНОЗ</h2>
+                <div class="hourly-nav-controls">
+                    <button class="hourly-nav-btn" id="btnScrollHourlyLeft" aria-label="Предыдущие часы" title="Прокрутить назад">‹</button>
+                    <button class="hourly-nav-btn" id="btnScrollHourlyRight" aria-label="Следующие часы" title="Прокрутить вперед">›</button>
+                </div>
+            </div>
+            <div class="hourly-scroll-wrapper">
+                <div class="hourly-scroll" id="hourlyScroll">
+                    <!-- Hourly cards injected via JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Day Periods Breakdown (Суточный ход) -->
+        <section class="card" id="periodsSection">
+            <div class="section-header">
+                <h2 class="section-title" id="titlePeriods">🌓 ВРЕМЯ СУТОК</h2>
+            </div>
+            <div class="periods-grid" id="periodsGrid">
+                <!-- 4 period cards injected via JavaScript -->
+            </div>
+        </section>
+
+        <!-- Detailed Metrics Grid -->
+        <section class="metrics-grid" id="metricsSection">
+            <!-- Wind Card -->
+            <div class="metric-card" id="cardWind">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricWind">💨 ВЕТЕР</span>
+                </div>
+                <div class="compass-widget">
+                    <div class="compass-dial">
+                        <svg class="compass-needle" id="compassNeedle" viewBox="0 0 24 24" fill="none">
+                            <polygon points="12,2 16,12 12,10 8,12" fill="#38BDF8"/>
+                            <polygon points="12,22 16,12 12,10 8,12" fill="#64748B"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="metric-value-wrap">
+                            <span class="metric-value-main" id="metricWindSpeed">4.2</span>
+                            <span class="metric-value-unit" id="unitWindSpeed">м/с</span>
+                        </div>
+                        <div class="metric-subtext" id="metricWindSubtext">Северо-Западный • 15 км/ч</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Humidity Card -->
+            <div class="metric-card" id="cardHumidity">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricHumidity">💧 ВЛАЖНОСТЬ</span>
+                </div>
+                <div>
+                    <div class="metric-value-wrap">
+                        <span class="metric-value-main" id="metricHumidity">74</span>
+                        <span class="metric-value-unit">%</span>
+                    </div>
+                    <div class="metric-subtext" id="metricHumidityNote">Умеренная влажность</div>
+                </div>
+                <div class="metric-meter">
+                    <div class="metric-meter-fill" id="metricHumidityBar" style="width: 74%;"></div>
+                </div>
+            </div>
+
+            <!-- UV Index Card -->
+            <div class="metric-card" id="cardUv">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricUv">☀️ УФ-ИНДЕКС</span>
+                </div>
+                <div>
+                    <div class="metric-value-wrap">
+                        <span class="metric-value-main" id="metricUvIndex">2.4</span>
+                        <span class="metric-value-unit" id="metricUvLevel">Низкий</span>
+                    </div>
+                    <div class="metric-subtext" id="metricUvTip">Защита от солнца не требуется</div>
+                </div>
+                <div class="metric-meter">
+                    <div class="metric-meter-fill" id="metricUvBar" style="width: 25%; background: #34D399;"></div>
+                </div>
+            </div>
+
+            <!-- Pressure Card -->
+            <div class="metric-card" id="cardPressure">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricPressure">🧭 ДАВЛЕНИЕ</span>
+                </div>
+                <div>
+                    <div class="metric-value-wrap">
+                        <span class="metric-value-main" id="metricPressureMmhg">752</span>
+                        <span class="metric-value-unit">мм рт. ст.</span>
+                    </div>
+                    <div class="metric-subtext" id="metricPressureHpa">1003 гПа • В норме</div>
+                </div>
+            </div>
+
+            <!-- Sunrise & Sunset Card -->
+            <div class="metric-card" id="cardSunCycle">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricSun">🌅 СОЛНЦЕ</span>
+                </div>
+                <div class="sun-cycle-wrap">
+                    <div class="sun-times-row">
+                        <div class="sun-time-block">
+                            <span class="sun-time-label" id="labelSunrise">Восход</span>
+                            <span id="sunriseTime">06:52</span>
+                        </div>
+                        <div class="sun-time-block right">
+                            <span class="sun-time-label" id="labelSunset">Закат</span>
+                            <span id="sunsetTime">17:28</span>
+                        </div>
+                    </div>
+                    <div class="metric-subtext" id="daylightDuration">Световой день: 10 ч 36 мин</div>
+                </div>
+            </div>
+
+            <!-- Precipitation & Clouds Card -->
+            <div class="metric-card" id="cardPrecip">
+                <div class="metric-header">
+                    <span class="metric-title" id="titleMetricPrecip">🌧️ ОСАДКИ</span>
+                </div>
+                <div>
+                    <div class="metric-value-wrap">
+                        <span class="metric-value-main" id="metricPrecipSum">0.0</span>
+                        <span class="metric-value-unit">мм</span>
+                    </div>
+                    <div class="metric-subtext" id="metricPrecipDetails">Вероятность: 15% • Облачность: 85%</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7-Day Extended Forecast Card -->
+        <section class="card" id="weekForecastSection">
+            <div class="section-header">
+                <h2 class="section-title" id="titleWeekForecast">📅 ПРОГНОЗ НА 7 ДНЕЙ</h2>
+            </div>
+            <div class="forecast-list" id="forecast7DaysList">
+                <!-- 7 days rows injected via JavaScript -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Search Modal / Sheet -->
+    <div class="search-modal" id="searchModal">
+        <div class="search-sheet">
+            <div class="search-input-wrap">
+                <span>🔍</span>
+                <input type="text" class="search-input" id="searchInput" placeholder="Поиск города, поселка или села..." autocomplete="off">
+                <button class="search-close-btn" id="btnCloseSearch">✕</button>
+            </div>
+
+            <div class="search-chips-title" id="labelPopularPlaces">Популярные направления:</div>
+            <div class="search-chips-wrap" id="searchChips">
+                <button class="search-chip" data-city="Москва" data-lat="55.751244" data-lon="37.618423" data-tz="Europe/Moscow">Москва</button>
+                <button class="search-chip" data-city="Санкт-Петербург" data-lat="59.93863" data-lon="30.31413" data-tz="Europe/Moscow">Санкт-Петербург</button>
+                <button class="search-chip" data-city="Сочи" data-lat="43.5855" data-lon="39.7231" data-tz="Europe/Moscow">Сочи</button>
+                <button class="search-chip" data-city="Казань" data-lat="55.7887" data-lon="49.1221" data-tz="Europe/Moscow">Казань</button>
+                <button class="search-chip" data-city="Новосибирск" data-lat="55.0415" data-lon="82.9346" data-tz="Asia/Novosibirsk">Новосибирск</button>
+                <button class="search-chip" data-city="Дубай" data-lat="25.2048" data-lon="55.2708" data-tz="Asia/Dubai">Дубай</button>
+            </div>
+
+            <div class="search-results-list" id="searchResults">
+                <!-- Search results injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Feedback Toast -->
+    <div class="toast-notice" id="toastNotice">
+        <span id="toastIcon">✅</span>
+        <span id="toastText">Город успешно сохранен</span>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="js/weather_icons.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
+</body>
+</html>

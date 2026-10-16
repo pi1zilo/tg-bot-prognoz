@@ -165,7 +165,7 @@ html, body {
     width: 100%;
     max-width: 500px;
     margin: 0 auto;
-    padding: 16px 16px 110px 16px;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom)) 16px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -471,17 +471,98 @@ body.theme-light .day-tab.active {
 }
 
 /* Hourly Forecast Timeline Carousel */
+.hourly-nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hourly-nav-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+    transition: var(--transition-smooth);
+    user-select: none;
+}
+
+.hourly-nav-btn:hover {
+    background: var(--bg-surface-active);
+    color: var(--text-primary);
+    border-color: var(--border-focus);
+}
+
+.hourly-nav-btn:active {
+    transform: scale(0.92);
+}
+
+.hourly-scroll-wrapper {
+    position: relative;
+    width: 100%;
+}
+
 .hourly-scroll {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 6px 2px 8px 2px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    cursor: grab;
+}
+
+.hourly-scroll.grabbing {
+    cursor: grabbing;
+    user-select: none;
 }
 
 .hourly-scroll::-webkit-scrollbar {
     display: none;
+}
+
+.hourly-day-separator {
+    flex: 0 0 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed var(--border-focus);
+    user-select: none;
+}
+
+.hourly-day-separator.today {
+    background: rgba(56, 189, 248, 0.08);
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.hourly-day-separator .sep-day {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.hourly-day-separator.today .sep-day {
+    color: var(--accent-blue);
+}
+
+.hourly-day-separator .sep-date {
+    font-size: 10px;
+    color: var(--text-muted);
 }
 
 .hour-card {
@@ -489,28 +570,49 @@ body.theme-light .day-tab.active {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 12px 6px;
+    gap: 6px;
+    padding: 10px 4px 12px 4px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     transition: var(--transition-smooth);
+    user-select: none;
+    position: relative;
 }
 
 .hour-card.current {
-    background: rgba(56, 189, 248, 0.1);
+    background: rgba(56, 189, 248, 0.12);
     border-color: var(--accent-blue);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+}
+
+.hour-card.target-day:not(.current) {
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.hour-day-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+}
+
+.hour-card.current .hour-day-sub {
+    color: var(--accent-blue);
+    font-weight: 700;
 }
 
 .hour-time {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
 }
 
 .hour-card.current .hour-time {
-    color: var(--accent-blue);
-    font-weight: 600;
+    color: #FFFFFF;
 }
 
 .hour-icon {
@@ -784,81 +886,6 @@ body.theme-light .day-tab.active {
     color: var(--text-primary);
 }
 
-/* Bottom Action Bar */
-.bottom-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    background: rgba(11, 15, 25, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border-subtle);
-    padding: 12px 16px;
-    display: flex;
-    justify-content: center;
-}
-
-body.theme-light .bottom-bar {
-    background: rgba(241, 245, 249, 0.85);
-}
-
-.bottom-bar-inner {
-    width: 100%;
-    max-width: 500px;
-    display: flex;
-    gap: 10px;
-}
-
-.btn-primary {
-    flex: 2;
-    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%);
-    color: #FFFFFF;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius-full);
-    padding: 13px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
-    transition: var(--transition-smooth);
-}
-
-.btn-primary:active {
-    transform: scale(0.97);
-    filter: brightness(0.95);
-}
-
-.btn-secondary {
-    flex: 1;
-    background: var(--bg-surface);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    color: var(--text-primary);
-    border: 1px solid var(--border-subtle);
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: var(--radius-full);
-    padding: 13px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: var(--transition-smooth);
-}
-
-.btn-secondary:active {
-    transform: scale(0.97);
-    background: var(--bg-surface-active);
-}
 
 /* Search Modal / Overlay */
 .search-modal {

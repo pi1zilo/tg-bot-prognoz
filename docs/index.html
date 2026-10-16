@@ -6,7 +6,7 @@
     <title>Прогноз Погоды</title>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -92,9 +92,15 @@
         <section class="card" id="hourlySection">
             <div class="section-header">
                 <h2 class="section-title" id="titleHourlyForecast">⏱ ПОЧАСОВОЙ ПРОГНОЗ</h2>
+                <div class="hourly-nav-controls">
+                    <button class="hourly-nav-btn" id="btnScrollHourlyLeft" aria-label="Предыдущие часы" title="Прокрутить назад">‹</button>
+                    <button class="hourly-nav-btn" id="btnScrollHourlyRight" aria-label="Следующие часы" title="Прокрутить вперед">›</button>
+                </div>
             </div>
-            <div class="hourly-scroll" id="hourlyScroll">
-                <!-- Hourly pills injected via JavaScript -->
+            <div class="hourly-scroll-wrapper">
+                <div class="hourly-scroll" id="hourlyScroll">
+                    <!-- Hourly cards injected via JavaScript -->
+                </div>
             </div>
         </section>
 
@@ -227,20 +233,6 @@
 
     </main>
 
-    <!-- Bottom Telegram Actions Bar -->
-    <div class="bottom-bar">
-        <div class="bottom-bar-inner">
-            <button class="btn-primary" id="btnSendToChat" title="Отправить в чат">
-                <span>📤</span>
-                <span id="labelSendToChat">Отправить в чат</span>
-            </button>
-            <button class="btn-secondary" id="btnSaveCity" title="Сделать основным городом">
-                <span>⭐</span>
-                <span id="labelSaveCity">Сохранить</span>
-            </button>
-        </div>
-    </div>
-
     <!-- Search Modal / Sheet -->
     <div class="search-modal" id="searchModal">
         <div class="search-sheet">
@@ -273,7 +265,7 @@
     </div>
 
     <!-- App Scripts -->
-    <script src="js/weather_icons.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/weather_icons.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
 </body>
 </html>

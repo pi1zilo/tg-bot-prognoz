@@ -181,17 +181,28 @@ async def handle_weather(request: web.Request) -> web.Response:
         "time": curr.get("time"),
     }
 
-    # Hourly data for the selected day
+    now_dt = get_target_date_for_tz(0, actual_tz)
+    today_str = now_dt.strftime("%Y-%m-%d")
+    yesterday_str = (now_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+    max_forecast_str = (now_dt + timedelta(days=4)).strftime("%Y-%m-%d")
+
+    # Hourly data for timeline carousel (Yesterday through +4 days)
     hourly = raw_data.get("hourly", {})
     times = hourly.get("time", [])
     hourly_list = []
     temps_target = []
     precip_target = []
 
-    curr_hour = target_dt.hour if offset == 0 else -1
+    curr_hour = now_dt.hour
+
+    weekdays_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+    weekdays_en = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    months_ru = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+    months_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     for idx, t_str in enumerate(times):
-        if not t_str.startswith(target_date_str):
+        t_date = t_str.split("T")[0] if "T" in t_str else t_str[:10]
+        if len(times) > 24 and (t_date < yesterday_str or t_date > max_forecast_str):
             continue
 
         h_code = hourly.get("weather_code", [])[idx] if idx < len(hourly.get("weather_code", [])) else 0
@@ -204,16 +215,41 @@ async def handle_weather(request: web.Request) -> web.Response:
         h_hum = hourly.get("relative_humidity_2m", [])[idx] if idx < len(hourly.get("relative_humidity_2m", [])) else 0
         h_uv = hourly.get("uv_index", [])[idx] if idx < len(hourly.get("uv_index", [])) else 0.0
 
-        time_part = t_str.split("T")[1][:5]
+        time_part = t_str.split("T")[1][:5] if "T" in t_str else t_str
         hour_int = int(time_part.split(":")[0])
 
-        temps_target.append(temp_val)
-        precip_target.append(prec_val)
+        if t_date == target_date_str:
+            temps_target.append(temp_val)
+            precip_target.append(prec_val)
+
+        diff_days = 0
+        day_label = ""
+        short_date = ""
+        try:
+            item_dt = datetime.strptime(t_date, "%Y-%m-%d")
+            diff_days = (item_dt.date() - now_dt.date()).days
+            if diff_days == -1:
+                day_label = "Вчера" if lang == "ru" else "Yesterday"
+            elif diff_days == 0:
+                day_label = "Сегодня" if lang == "ru" else "Today"
+            elif diff_days == 1:
+                day_label = "Завтра" if lang == "ru" else "Tomorrow"
+            else:
+                day_label = (weekdays_ru if lang == "ru" else weekdays_en)[item_dt.weekday()]
+            mo = (months_ru if lang == "ru" else months_en)[item_dt.month - 1]
+            short_date = f"{item_dt.day} {mo}"
+        except Exception:
+            day_label = t_date
+            short_date = t_date
 
         hourly_list.append({
             "time": t_str,
+            "date": t_date,
             "hour": hour_int,
             "hour_display": time_part,
+            "day_offset": diff_days,
+            "day_label": day_label,
+            "short_date": short_date,
             "temperature": round(temp_val, 1),
             "apparent_temperature": round(hourly.get("apparent_temperature", [])[idx], 1) if idx < len(hourly.get("apparent_temperature", [])) else round(temp_val, 1),
             "precipitation": round(prec_val, 1),
@@ -225,10 +261,16 @@ async def handle_weather(request: web.Request) -> web.Response:
             "humidity": round(h_hum),
             "uv_index": round(h_uv, 1) if h_uv is not None else 0.0,
             "is_day": h_is_day,
-            "is_current": (offset == 0 and hour_int == curr_hour),
+            "is_today": (t_date == today_str),
+            "is_target": (t_date == target_date_str),
+            "is_current": (t_date == today_str and hour_int == curr_hour),
         })
 
     # Periods of the day (night 0-6, morning 6-12, day 12-18, evening 18-24)
+    p_target_hours = [h for h in hourly_list if h.get("date") == target_date_str]
+    if not p_target_hours:
+        p_target_hours = hourly_list
+
     periods = {}
     period_ranges = {
         "night": (0, 6, "Ночь" if lang == "ru" else "Night"),
@@ -238,7 +280,7 @@ async def handle_weather(request: web.Request) -> web.Response:
     }
 
     for p_key, (h_start, h_end, p_title) in period_ranges.items():
-        p_hours = [h for h in hourly_list if h_start <= h["hour"] < h_end]
+        p_hours = [h for h in p_target_hours if h_start <= h["hour"] < h_end]
         if p_hours:
             p_temps = [h["temperature"] for h in p_hours]
             p_w_codes = [h["weather_code"] for h in p_hours]

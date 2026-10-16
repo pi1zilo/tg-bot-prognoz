@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 import pytest_asyncio
 from aiohttp.test_utils import TestClient, TestServer
@@ -86,15 +88,62 @@ async def test_api_user_lifecycle(webapp_client):
     assert get_data["user"]["city"] == "Санкт-Петербург"
 
 
+MOCK_METEO_RAW = {
+    "current": {
+        "temperature_2m": 12.5,
+        "apparent_temperature": 11.2,
+        "precipitation": 0.0,
+        "weather_code": 1,
+        "cloud_cover": 20,
+        "wind_speed_10m": 3.5,
+        "wind_direction_10m": 180,
+        "relative_humidity_2m": 65,
+        "surface_pressure": 1013.25,
+        "is_day": 1
+    },
+    "hourly": {
+        "time": ["2026-10-16T00:00", "2026-10-16T01:00", "2026-10-16T02:00"],
+        "temperature_2m": [10.0, 9.5, 9.0],
+        "apparent_temperature": [9.0, 8.5, 8.0],
+        "precipitation_probability": [0, 0, 0],
+        "precipitation": [0.0, 0.0, 0.0],
+        "weather_code": [1, 1, 1],
+        "cloud_cover": [20, 20, 20],
+        "wind_speed_10m": [3.0, 3.2, 3.1],
+        "wind_direction_10m": [180, 180, 180],
+        "relative_humidity_2m": [70, 72, 75],
+        "surface_pressure": [1014, 1014, 1013],
+        "uv_index": [0.0, 0.0, 0.0],
+        "is_day": [0, 0, 0]
+    },
+    "daily": {
+        "time": ["2026-10-16"],
+        "weather_code": [1],
+        "temperature_2m_max": [15.0],
+        "temperature_2m_min": [8.0],
+        "apparent_temperature_max": [14.0],
+        "apparent_temperature_min": [7.0],
+        "sunrise": ["2026-10-16T06:50"],
+        "sunset": ["2026-10-16T17:30"],
+        "uv_index_max": [3.2],
+        "precipitation_sum": [0.0],
+        "precipitation_probability_max": [10],
+        "wind_speed_10m_max": [5.0]
+    }
+}
+
+
 @pytest.mark.asyncio
 async def test_api_weather(webapp_client):
-    resp = await webapp_client.get("/api/weather?lat=55.751244&lon=37.618423&offset=0&lang=ru")
-    assert resp.status == 200
-    data = await resp.json()
-    assert data["success"] is True
-    assert "current" in data
-    assert "selected_day" in data
-    assert "hourly" in data
-    assert len(data["hourly"]) > 0
-    assert "forecast_7days" in data
-    assert len(data["forecast_7days"]) > 0
+    with patch("src.app.webapp.server.fetch_open_meteo_raw", return_value=MOCK_METEO_RAW):
+        resp = await webapp_client.get("/api/weather?lat=55.751244&lon=37.618423&offset=0&lang=ru")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["success"] is True
+        assert "current" in data
+        assert "selected_day" in data
+        assert "hourly" in data
+        assert len(data["hourly"]) > 0
+        assert "forecast_7days" in data
+        assert len(data["forecast_7days"]) > 0
+

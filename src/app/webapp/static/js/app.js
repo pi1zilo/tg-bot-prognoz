@@ -254,8 +254,6 @@
 
         document.getElementById("labelSunrise").textContent = t.sunrise;
         document.getElementById("labelSunset").textContent = t.sunset;
-        document.getElementById("labelSendToChat").textContent = t.send_to_chat;
-        document.getElementById("labelSaveCity").textContent = t.save_city;
         document.getElementById("searchInput").placeholder = t.search_placeholder;
         document.getElementById("labelPopularPlaces").textContent = t.popular_places;
     }
@@ -292,6 +290,17 @@
             precipitation: Math.round((cur.precipitation || 0) * 10) / 10,
         };
 
+        const curYear = now.getFullYear();
+        const curMonth = String(now.getMonth() + 1).padStart(2, '0');
+        const curDate = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${curYear}-${curMonth}-${curDate}`;
+
+        const yesterdayObj = new Date(now.getTime() - 86400000);
+        const yesterdayStr = `${yesterdayObj.getFullYear()}-${String(yesterdayObj.getMonth() + 1).padStart(2, '0')}-${String(yesterdayObj.getDate()).padStart(2, '0')}`;
+
+        const maxForecastObj = new Date(now.getTime() + 4 * 86400000);
+        const maxForecastStr = `${maxForecastObj.getFullYear()}-${String(maxForecastObj.getMonth() + 1).padStart(2, '0')}-${String(maxForecastObj.getDate()).padStart(2, '0')}`;
+
         const hourly = raw.hourly || {};
         const times = hourly.time || [];
         const hourlyList = [];
@@ -299,9 +308,15 @@
         const precipTarget = [];
         const currHour = now.getHours();
 
+        const weekdaysRu = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+        const weekdaysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const monthsRu = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+        const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
         for (let i = 0; i < times.length; i++) {
             const tStr = times[i];
-            if (!tStr.startsWith(targetDateStr)) continue;
+            const tDate = tStr.includes('T') ? tStr.split('T')[0] : tStr.substring(0, 10);
+            if (tDate < yesterdayStr || tDate > maxForecastStr) continue;
 
             const timePart = tStr.includes('T') ? tStr.split('T')[1].substring(0, 5) : tStr;
             const hourInt = parseInt(timePart.split(':')[0], 10);
@@ -315,13 +330,37 @@
             const humVal = hourly.relative_humidity_2m ? hourly.relative_humidity_2m[i] : 0;
             const uvVal = hourly.uv_index ? hourly.uv_index[i] : 0;
 
-            tempsTarget.push(tempVal);
-            precipTarget.push(precVal);
+            if (tDate === targetDateStr) {
+                tempsTarget.push(tempVal);
+                precipTarget.push(precVal);
+            }
+
+            const [tY, tM, tD] = tDate.split('-').map(Number);
+            const itemDateObj = new Date(tY, tM - 1, tD);
+            const nowDateObj = new Date(curYear, now.getMonth(), now.getDate());
+            const diffDays = Math.round((itemDateObj.getTime() - nowDateObj.getTime()) / 86400000);
+
+            let dayLabel = "";
+            if (diffDays === -1) {
+                dayLabel = lang === 'ru' ? "Вчера" : "Yesterday";
+            } else if (diffDays === 0) {
+                dayLabel = lang === 'ru' ? "Сегодня" : "Today";
+            } else if (diffDays === 1) {
+                dayLabel = lang === 'ru' ? "Завтра" : "Tomorrow";
+            } else {
+                dayLabel = (lang === 'ru' ? weekdaysRu : weekdaysEn)[itemDateObj.getDay()];
+            }
+            const mo = (lang === 'ru' ? monthsRu : monthsEn)[itemDateObj.getMonth()];
+            const shortDateStr = `${itemDateObj.getDate()} ${mo}`;
 
             hourlyList.push({
                 time: tStr,
+                date: tDate,
                 hour: hourInt,
                 hour_display: timePart,
+                day_offset: diffDays,
+                day_label: dayLabel,
+                short_date: shortDateStr,
                 temperature: Math.round(tempVal * 10) / 10,
                 apparent_temperature: Math.round(appTempVal * 10) / 10,
                 precipitation: Math.round(precVal * 10) / 10,
@@ -333,11 +372,13 @@
                 humidity: Math.round(humVal),
                 uv_index: Math.round(uvVal * 10) / 10,
                 is_day: isDayVal,
-                is_current: (offset === 0 && hourInt === currHour),
+                is_today: (tDate === todayStr),
+                is_target: (tDate === targetDateStr),
+                is_current: (tDate === todayStr && hourInt === currHour),
             });
         }
 
-        // Periods of day
+        // Periods of day for the selected target day
         const periods = {};
         const pDefs = {
             night: [0, 6, lang === 'ru' ? 'Ночь' : 'Night'],
@@ -346,7 +387,7 @@
             evening: [18, 24, lang === 'ru' ? 'Вечер' : 'Evening'],
         };
         for (const [pKey, [hStart, hEnd, pTitle]] of Object.entries(pDefs)) {
-            const pHours = hourlyList.filter(h => h.hour >= hStart && h.hour < hEnd);
+            const pHours = hourlyList.filter(h => h.date === targetDateStr && h.hour >= hStart && h.hour < hEnd);
             if (pHours.length) {
                 const pTemps = pHours.map(h => h.temperature);
                 const pWind = pHours.map(h => h.wind_speed);
@@ -395,13 +436,10 @@
             if (daily.weather_code && daily.weather_code[dIdx] !== undefined) dCode = daily.weather_code[dIdx];
         }
 
-        const monthsRu = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-        const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const daysRu = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-        const daysEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const daysRu = weekdaysRu;
+        const daysEn = weekdaysEn;
 
         const forecast7Days = [];
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         let startIdx = dailyTimes.indexOf(todayStr);
         if (startIdx === -1) startIdx = 0;
 
@@ -572,19 +610,31 @@
         document.getElementById("heroUv").textContent = `${day.uv_index_max} • ${uvRating}`;
     }
 
-    // Render Hourly Forecast Slider
+    // Render Hourly Forecast Timeline Carousel
     function renderHourly(hourlyList) {
         const container = document.getElementById("hourlyScroll");
         if (!container || !hourlyList) return;
 
         const t = i18n[state.lang] || i18n.ru;
         let html = '';
+        let lastDate = '';
 
         hourlyList.forEach(item => {
+            if (item.date && item.date !== lastDate) {
+                lastDate = item.date;
+                html += `
+                    <div class="hourly-day-separator ${item.is_today ? 'today' : ''}">
+                        <span class="sep-day">${item.day_label}</span>
+                        <span class="sep-date">${item.short_date}</span>
+                    </div>
+                `;
+            }
+
             const timeLabel = item.is_current ? t.now : item.hour_display;
             const tempSign = item.temperature > 0 ? `+${item.temperature}` : `${item.temperature}`;
             const iconSvg = window.WeatherIcons.getIcon(item.weather_code, item.is_day);
             const activeClass = item.is_current ? 'current' : '';
+            const targetDayClass = item.is_target ? 'target-day' : '';
 
             let precipBadge = '';
             if (item.precipitation_probability > 0) {
@@ -592,8 +642,9 @@
             }
 
             html += `
-                <div class="hour-card ${activeClass}">
-                    <span class="hour-time">${timeLabel}</span>
+                <div class="hour-card ${activeClass} ${targetDayClass}" data-date="${item.date}" data-hour="${item.hour}">
+                    <span class="hour-day-sub">${item.is_current ? t.now : item.day_label}</span>
+                    <span class="hour-time">${item.is_current ? item.hour_display : timeLabel}</span>
                     <div class="hour-icon">${iconSvg}</div>
                     <span class="hour-temp">${tempSign}°</span>
                     ${precipBadge}
@@ -603,13 +654,20 @@
 
         container.innerHTML = html;
 
-        // Auto-scroll to current hour
-        const currentHourElem = container.querySelector('.hour-card.current');
-        if (currentHourElem) {
-            setTimeout(() => {
-                currentHourElem.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            }, 100);
-        }
+        // Auto-scroll logic:
+        setTimeout(() => {
+            if (state.offset === 0) {
+                const currentHourElem = container.querySelector('.hour-card.current');
+                if (currentHourElem) {
+                    currentHourElem.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                    return;
+                }
+            }
+            const targetDayCard = container.querySelector('.hour-card.target-day');
+            if (targetDayCard) {
+                targetDayCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }, 100);
     }
 
     // Render Periods
@@ -966,80 +1024,51 @@
             );
         });
 
-        // Save City Button
-        document.getElementById("btnSaveCity")?.addEventListener("click", async () => {
-            triggerHaptic('success');
-            const t = i18n[state.lang] || i18n.ru;
-
-            localStorage.setItem('prognoz_city', state.city);
-            localStorage.setItem('prognoz_lat', state.lat);
-            localStorage.setItem('prognoz_lon', state.lon);
-            localStorage.setItem('prognoz_tz', state.tz);
-
-            if (state.telegram_id) {
-                try {
-                    await fetch('/api/user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            telegram_id: state.telegram_id,
-                            city: state.city,
-                            latitude: state.lat,
-                            longitude: state.lon,
-                            timezone: state.tz,
-                            language: state.lang,
-                        })
-                    });
-                } catch (e) {
-                    console.warn("Save user error:", e);
-                }
-            }
-
-            showToast(t.city_saved_toast, "⭐");
+        // Hourly Carousel Navigation Controls & Drag-to-Scroll
+        const hourlyScroll = document.getElementById("hourlyScroll");
+        document.getElementById("btnScrollHourlyLeft")?.addEventListener("click", () => {
+            triggerHaptic('light');
+            hourlyScroll?.scrollBy({ left: -240, behavior: 'smooth' });
+        });
+        document.getElementById("btnScrollHourlyRight")?.addEventListener("click", () => {
+            triggerHaptic('light');
+            hourlyScroll?.scrollBy({ left: 240, behavior: 'smooth' });
         });
 
-        // Send to Chat Button
-        document.getElementById("btnSendToChat")?.addEventListener("click", () => {
-            triggerHaptic('medium');
-            const t = i18n[state.lang] || i18n.ru;
-            if (!state.data) return;
+        if (hourlyScroll) {
+            let isDown = false;
+            let startX = 0;
+            let scrollLeft = 0;
 
-            const cur = state.data.current;
-            const day = state.data.selected_day;
-            const shareText = `🌤 ${state.city} (${day.date_formatted})\n` +
-                `${cur.weather_emoji} ${cur.weather_desc}\n` +
-                `🌡 Температура: ${cur.temperature > 0 ? '+' : ''}${cur.temperature}°C (ощущается как ${cur.apparent_temperature > 0 ? '+' : ''}${cur.apparent_temperature}°C)\n` +
-                `📊 Мин: ${day.temp_min > 0 ? '+' : ''}${day.temp_min}°C • Макс: ${day.temp_max > 0 ? '+' : ''}${day.temp_max}°C\n` +
-                `💨 Ветер: ${cur.wind_speed} м/с (${cur.wind_cardinal})\n` +
-                `💧 Влажность: ${cur.humidity}%\n` +
-                `🧭 Давление: ${cur.pressure_mmhg} мм рт. ст.\n` +
-                `🌅 Восход: ${day.sunrise} | Закат: ${day.sunset}`;
+            hourlyScroll.addEventListener("mousedown", (e) => {
+                isDown = true;
+                hourlyScroll.classList.add("grabbing");
+                startX = e.pageX - hourlyScroll.offsetLeft;
+                scrollLeft = hourlyScroll.scrollLeft;
+            });
 
-            // Try Telegram sendData first
-            if (tg && typeof tg.sendData === 'function') {
-                try {
-                    tg.sendData(JSON.stringify({
-                        action: 'weather_share',
-                        city: state.city,
-                        lat: state.lat,
-                        lon: state.lon,
-                        summary: shareText
-                    }));
-                    return;
-                } catch (e) {
-                    console.warn("tg.sendData not available in this context:", e);
+            window.addEventListener("mouseup", () => {
+                if (isDown) {
+                    isDown = false;
+                    hourlyScroll.classList.remove("grabbing");
                 }
-            }
+            });
 
-            // Fallback: copy to clipboard or native share
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(shareText)
-                    .then(() => showToast(t.copied_toast, "📋"))
-                    .catch(() => alert(shareText));
-            } else {
-                alert(shareText);
-            }
-        });
+            hourlyScroll.addEventListener("mousemove", (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - hourlyScroll.offsetLeft;
+                const walk = (x - startX) * 1.5;
+                hourlyScroll.scrollLeft = scrollLeft - walk;
+            });
+
+            hourlyScroll.addEventListener("wheel", (e) => {
+                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                    e.preventDefault();
+                    hourlyScroll.scrollLeft += e.deltaY;
+                }
+            }, { passive: false });
+        }
     }
 
     // Render search results
