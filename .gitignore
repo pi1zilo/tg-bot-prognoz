@@ -32,8 +32,10 @@ keys.txt
 *.pem
 *.key
 
-# Trash isolation folder
+# Trash & Archive isolation folders
 _trash_candidates/
+_trash/
+_archive/
 
 # Databases & runtime data
 *.db

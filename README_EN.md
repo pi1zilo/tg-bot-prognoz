@@ -2,7 +2,8 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
-[![Tests](https://img.shields.io/badge/tests-98%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-104%20passed-success.svg)](tests/)
+[![Mini App](https://img.shields.io/badge/Mini%20App-weather.bilionid.ru-0088cc.svg)](https://weather.bilionid.ru)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
@@ -10,7 +11,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Russian README](https://img.shields.io/badge/README-Русский-blue.svg)](README.md)
 
-An asynchronous Telegram bot for precise weather forecasting and historical weather archives featuring smart geocoding for small settlements and time-of-day period breakdown.
+An asynchronous Telegram bot for precise weather forecasting and historical weather archives featuring smart geocoding for small settlements, time-of-day period breakdown, and an interactive Telegram Mini App (TMA).
 
 ---
 
@@ -18,6 +19,7 @@ An asynchronous Telegram bot for precise weather forecasting and historical weat
 
 - [📖 About the Project](#-about-the-project)
 - [✨ Key Features](#-key-features)
+- [📱 Telegram Mini App (TMA)](#-telegram-mini-app-tma)
 - [🖼️ Interface](#️-interface)
 - [🛠️ Tech Stack](#️-tech-stack)
 - [📁 Project Structure](#-project-structure)
@@ -98,9 +100,54 @@ All navigation relies on inline keyboard buttons, allowing users to toggle betwe
   - **Full Help Guide `/help`**: Localized guide explaining all commands and interactive navigation (day selection, period breakdowns, refresh, and back buttons).
   - Group chat safety: avoids locking public chats into FSM text-input states; provides actionable syntax hints.
   - Automatic Telegram UI command registration (`set_my_commands`) for auto-completion upon typing `/`.
+- **Telegram Mini App (TMA) & Interactive Web Dashboard**:
+  - Full-featured visual weather dashboard optimized for the Telegram WebApp SDK and mobile browsers.
+  - Hosted on custom domain **`weather.bilionid.ru`** via GitHub Pages from the `docs/` directory.
+  - Accessible directly in Telegram via the `/app` command, the Telegram **Menu Button**, or from the `/start` menu.
+  - 24-hour horizontal hourly slider displaying temperatures, precipitation probabilities, and wind speeds.
+  - Day phase cards (Night, Morning, Afternoon, Evening) and extended 7-day weather outlook.
+  - Meteorological metrics: WHO UV Index scale with recommendations, air humidity, atmospheric pressure in mmHg, sun cycle (sunrise, sunset, daylight hours), and 16-point wind compass.
+  - Animated SVG weather icons and atmospheric dynamic gradient themes adjusting to current weather and day/night state.
+  - One-tap GPS geolocation, search autocomplete for settlements and cities, and instant forecast sharing to Telegram chat.
+  - Autonomous client-side execution with Open-Meteo & BigDataCloud fallback when served via static hosting.
 - **Quality Standards & CI/CD**:
   - Strict static code analysis with **Ruff** linter (Python 3.12, rules `E`, `W`, `F`, `I`, `B`, `UP`).
   - Automated CI pipeline on **GitHub Actions** (`.github/workflows/tests.yml`) validating every push and pull request.
+  - Automated deployment workflow (`.github/workflows/pages.yml`) for GitHub Pages static hosting.
+
+---
+
+## 📱 Telegram Mini App (TMA)
+
+The project includes an interactive Telegram Mini App available inside Telegram and across all modern browsers:
+
+- **Application Domain**: [https://weather.bilionid.ru](https://weather.bilionid.ru)
+- **Static Hosting**: **GitHub Pages** (source files in [`docs/`](docs/))
+- **Automated Deployment**: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) via GitHub Actions on every push to `main`
+- **Local Backend**: Built-in asynchronous server on `aiohttp` ([`src/app/webapp/server.py`](src/app/webapp/server.py)) running alongside the bot (`http://localhost:8080`)
+
+### Key Mini App Features:
+1. **Hero Day Card**:
+   - Current temperature, apparent temperature, daily high/low, condition description, and animated SVG icon.
+   - Quick date tabs: **Yesterday**, **Today**, **Tomorrow**, **+2 Days**, and **7 Days**.
+2. **24-Hour Timeline**:
+   - Smooth horizontal scrollable timeline with temperature, precipitation probability (%), and wind speed.
+3. **Day Phases**:
+   - Distinct cards for 4 day intervals: 🌙 Night, 🌅 Morning, ☀️ Afternoon, 🌆 Evening.
+4. **Detailed Weather Grid**:
+   - **Wind**: Speed, gusts, and compass direction arrow.
+   - **Humidity**: Moisture percentage and comfort level description.
+   - **UV Index**: WHO radiation scale with health safety advice.
+   - **Pressure**: Barometric pressure in standard **mmHg** with normal range indication.
+   - **Sun Cycle**: Sunrise 🌅 and sunset 🌇 times with calculated daylight duration.
+   - **Precipitation**: Total daily precipitation accumulation in millimeters.
+5. **7-Day Outlook**:
+   - Weekly breakdown with weather condition, rain/snow probability, and daily temperature extremes.
+6. **Smart Search & Geolocation**:
+   - City and settlement search modal with quick chips for popular destinations.
+   - One-tap geolocation detection via the 🎯 button.
+   - **Save City**: Saves current selection to persistent local storage.
+   - **Send to Chat**: Directly exports the formatted weather forecast into the Telegram chat session.
 
 ---
 
@@ -184,6 +231,9 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 |---|---|
 | **Python 3.12+** | Primary programming language (`asyncio`, `zoneinfo`, strict typing) |
 | **aiogram 3.13.1** | Asynchronous framework for Telegram Bot API |
+| **aiohttp 3.10+** | Asynchronous HTTP server for Mini App static assets and REST API |
+| **Telegram Mini App SDK** | Integration with Telegram native client (haptics, themeParams, sendData) |
+| **GitHub Pages** | Static hosting for the Mini App on custom domain `weather.bilionid.ru` |
 | **httpx 0.27.2** | Async HTTP client for Open-Meteo REST API requests |
 | **SQLite / aiosqlite 0.20.0** | Embedded relational database with async access |
 | **Open-Meteo API** | Provider for geocoding, weather forecasts, and historical weather data |
@@ -192,7 +242,7 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 | **tzdata** | IANA time zone database package |
 | **pytest / pytest-asyncio** | Async unit testing framework |
 | **Ruff 0.6+** | Fast linter & code formatter (Python 3.12, PEP 8) |
-| **GitHub Actions** | Automated CI pipeline (linting & test verification) |
+| **GitHub Actions** | Automated CI pipeline (linting, test verification & Pages deployment) |
 | **Docker / Docker Compose** | Containerization and deployment management |
 
 ---
@@ -203,24 +253,33 @@ The user interaction relies entirely on Telegram inline keyboards and is optimiz
 prognoz/
 ├── .github/
 │   └── workflows/
-│       └── tests.yml          # GitHub Actions CI workflow (Ruff + Pytest)
+│       ├── tests.yml          # GitHub Actions CI workflow (Ruff + Pytest)
+│       └── pages.yml          # GitHub Pages automated deployment workflow
 ├── config/                    # Configuration templates
 ├── data/                      # Directory for SQLite database file (mounted in Docker)
-├── docs/                      # Project documentation
+├── docs/                      # Static Telegram Mini App website for GitHub Pages (weather.bilionid.ru)
+│   ├── CNAME                  # Custom domain weather.bilionid.ru
+│   ├── .nojekyll              # Disable Jekyll processing
+│   ├── index.html             # Main dashboard page
+│   ├── css/
+│   │   └── style.css          # Glassmorphic responsive styling & themes
+│   └── js/
+│       ├── app.js             # Mini App client logic (TMA SDK & Open-Meteo fallback)
+│       └── weather_icons.js   # Animated SVG weather icons
 ├── logs/                      # Error log directory (errors.log)
 ├── scripts/                   # Utility scripts
 │   └── run_tests.py           # Standard library unittest runner
 ├── src/                       # Main source code (src-layout)
-│   ├── main.py                # Application entrypoint
+│   ├── main.py                # Application entrypoint (aiogram + aiohttp)
 │   └── app/
 │       ├── database/
 │       │   └── database.py    # SQLite initialization, users table schema & CRUD methods
 │       ├── handlers/
-│       │   ├── start.py       # Onboarding (/start), language selection (/lang) & city input FSM
+│       │   ├── start.py       # Onboarding (/start), language selection (/lang), /app & city input FSM
 │       │   ├── weather.py     # Weather commands (/weather, /pogoda), /city and /help
 │       │   └── callbacks.py   # Inline button handlers (days, periods, refresh, language)
 │       ├── keyboards/
-│       │   └── weather.py     # Inline keyboard factories (menu, language picker, periods)
+│       │   └── weather.py     # Inline keyboard factories (menu, language picker, WebAppInfo, periods)
 │       ├── services/
 │       │   ├── geocoding.py   # Settlement parser & Open-Meteo geocoding service (RU / EN)
 │       │   └── weather.py     # Weather Forecast & Archive API fetcher with TTL cache
@@ -230,8 +289,11 @@ prognoz/
 │       │   ├── i18n.py        # Localization dictionary and translation helper (RU / EN)
 │       │   ├── logger.py      # Console logger & file logger configuration
 │       │   └── weather_codes.py # WMO code mapping & wind compass calculations (RU / EN)
+│       ├── webapp/            # Telegram Mini App module
+│       │   ├── server.py      # aiohttp server (/api/weather, /api/search, /api/user endpoints)
+│       │   └── static/        # Static source files for Mini App (HTML, CSS, JS)
 │       └── config.py          # Environment settings loader
-├── tests/                     # Automated unit test suite (98 tests)
+├── tests/                     # Automated unit test suite (104 tests)
 │   ├── conftest.py            # sys.path configuration, isolated test SQLite DB & fixtures
 │   ├── test_database.py       # SQLite schema, migration and CRUD operations
 │   ├── test_dates.py          # Date offset and timezone tests
@@ -240,7 +302,8 @@ prognoz/
 │   ├── test_handlers.py       # Commands (/start, /weather, /city, /help), FSM & callbacks
 │   ├── test_i18n.py           # Language selection, first launch and English forecast tests
 │   ├── test_weather_codes.py  # WMO weather code and wind direction tests
-│   └── test_weather_service.py # Timeout, HTTP errors, corrupt JSON & TTL caching tests
+│   ├── test_weather_service.py # Timeout, HTTP errors, corrupt JSON & TTL caching tests
+│   └── test_webapp.py         # Mini App endpoint tests (/api/health, /api/weather, /api/search, /api/user)
 ├── .dockerignore              # Docker build exclusion rules
 ├── .env.example               # Environment variables template
 ├── .gitignore                 # Git ignore rules
@@ -311,6 +374,9 @@ Open `.env` in a text editor and fill in your Bot Token:
 ```env
 BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ_example
 DATABASE_PATH=weather_bot.db
+WEB_APP_HOST=0.0.0.0
+WEB_APP_PORT=8080
+WEB_APP_URL=https://weather.bilionid.ru
 ```
 
 ---
@@ -323,6 +389,9 @@ Application parameters are configured via environment variables in `.env`:
 |---|:---:|---|---|
 | `BOT_TOKEN` | **Yes** | — | Telegram Bot API token issued by [@BotFather](https://t.me/BotFather). |
 | `DATABASE_PATH` | No | `weather_bot.db` | SQLite database file name or path. Automatically stored under `data/weather_bot.db` if a relative name is given. |
+| `WEB_APP_HOST` | No | `0.0.0.0` | IP address / host binding for the internal aiohttp HTTP server. |
+| `WEB_APP_PORT` | No | `8080` | Port for the internal aiohttp HTTP server. |
+| `WEB_APP_URL` | No | `http://localhost:8080` | Public HTTPS URL for the Telegram Mini App (e.g. `https://weather.bilionid.ru`). Used for inline WebApp buttons and Menu Button. |
 
 Directories `data/` (for SQLite) and `logs/` (for error logs) are automatically created at application launch if they do not exist.
 
@@ -448,6 +517,8 @@ The user scenario is managed through a Finite State Machine (FSM) and callback q
    - The **«🔄 Refresh»** button invalidates the cache and fetches fresh weather data.
    - The **«📍 Change Location»** button allows setting a new location at any time.
    - The **«🌐 Language / Язык»** button (or `/lang` / `/language` command) allows switching language anytime.
+5. **Interactive Mini App (/app)**:
+   - The `/app` command (as well as the persistent Telegram Menu Button and main menu button) launches the visual weather dashboard with 24-hour timeline, day phases, wind compass, UV index, pressure in mmHg, and 7-day outlook at [weather.bilionid.ru](https://weather.bilionid.ru).
 
 ---
 

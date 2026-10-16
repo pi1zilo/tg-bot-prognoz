@@ -31,3 +31,7 @@ except OSError:
     pass
 
 DB_PATH = str(target_db_path.resolve())
+
+WEB_APP_HOST = os.getenv("WEB_APP_HOST", "0.0.0.0").strip()
+WEB_APP_PORT = int(os.getenv("WEB_APP_PORT", "8080").strip())
+WEB_APP_URL = os.getenv("WEB_APP_URL", f"http://localhost:{WEB_APP_PORT}").strip()

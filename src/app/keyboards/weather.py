@@ -1,10 +1,21 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from src.app.config import WEB_APP_URL
 from src.app.utils.i18n import t
 
 
-def get_main_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
+def get_main_menu_keyboard(
+    lang: str = "ru",
+    include_webapp: bool = False,
+    web_app_url: str | None = None
+) -> InlineKeyboardMarkup:
+    url = web_app_url or WEB_APP_URL
+    rows = []
+    if include_webapp and url and url.startswith("https://"):
+        btn_text = "📱 " + ("Открыть Mini App" if lang == "ru" else "Open Mini App")
+        rows.append([InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=url))])
+
+    rows.extend([
         [
             InlineKeyboardButton(text=t("btn_yesterday", lang), callback_data="day:-1"),
             InlineKeyboardButton(text=t("btn_today", lang), callback_data="day:0"),
@@ -18,6 +29,7 @@ def get_main_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="change_language"),
         ],
     ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def get_settlements_keyboard(candidates: list[dict], lang: str = "ru") -> InlineKeyboardMarkup:

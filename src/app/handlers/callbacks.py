@@ -38,7 +38,7 @@ async def cb_main_menu(callback: CallbackQuery):
 
     await callback.message.edit_text(
         t("welcome_back", user_lang, city=user["city"]),
-        reply_markup=get_main_menu_keyboard(user_lang),
+        reply_markup=get_main_menu_keyboard(user_lang, include_webapp=True),
         parse_mode="HTML"
     )
     await callback.answer()

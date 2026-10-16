@@ -1,11 +1,13 @@
+import json
 import logging
 
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
+from src.app.config import WEB_APP_URL
 from src.app.database.database import get_user, get_user_language, save_user, set_user_language
 from src.app.keyboards.weather import (
     get_language_keyboard,
@@ -57,7 +59,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
     await message.answer(
         t("welcome_back", lang, city=city),
-        reply_markup=get_main_menu_keyboard(lang),
+        reply_markup=get_main_menu_keyboard(lang, include_webapp=True),
         parse_mode="HTML"
     )
 
@@ -246,3 +248,51 @@ async def cb_cancel_city_search(callback: CallbackQuery, state: FSMContext):
                 parse_mode="HTML"
             )
     await callback.answer()
+
+
+@router.message(Command("app", "webapp", "miniapp"))
+async def cmd_webapp(message: Message):
+    user_lang = await get_user_language(message.from_user.id)
+    if WEB_APP_URL and WEB_APP_URL.startswith("https://"):
+        title = (
+            "🌤 <b>Погодное Mini App</b>\n\n"
+            "Интерактивный прогноз с почасовой шкалой, фазами суток, картой ветров и 7-дневным обзором:"
+            if user_lang == "ru"
+            else
+            "🌤 <b>Weather Mini App</b>\n\n"
+            "Interactive weather dashboard with hourly timeline, day phases, and 7-day outlook:"
+        )
+        btn_text = "📱 " + ("Открыть Mini App" if user_lang == "ru" else "Open Mini App")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=WEB_APP_URL))]
+        ])
+        await message.answer(title, reply_markup=kb, parse_mode="HTML")
+    else:
+        text = (
+            "🌤 <b>Погодное Mini App</b>\n\n"
+            f"Веб-приложение запущено локально:\n👉 <b>{WEB_APP_URL}</b>\n\n"
+            "Откройте эту ссылку в любом браузере для просмотра интерактивного интерфейса!\n\n"
+            "<i>(Для встроенного открытия кнопки внутри Telegram требуется HTTPS-ссылка, "
+            "например через Cloudflare Tunnel или ngrok)</i>"
+            if user_lang == "ru"
+            else
+            "🌤 <b>Weather Mini App</b>\n\n"
+            f"Web app is running locally:\n👉 <b>{WEB_APP_URL}</b>\n\n"
+            "Open this link in any browser to view the interactive dashboard!\n\n"
+            "<i>(To open inside Telegram via a button, an HTTPS URL is required)</i>"
+        )
+        await message.answer(text, parse_mode="HTML")
+
+
+@router.message(F.web_app_data)
+async def handle_web_app_data(message: Message):
+    try:
+        data_str = message.web_app_data.data
+        parsed = json.loads(data_str)
+        summary = parsed.get("summary")
+        if summary:
+            await message.answer(f"📱 <b>Прогноз из Mini App:</b>\n\n{summary}", parse_mode="HTML")
+            return
+    except Exception as e:
+        logging.warning(f"Error handling web_app_data: {e}")
+    await message.answer("✅ Данные из Mini App получены!")
