@@ -26,10 +26,32 @@
         offset: 0, // -1, 0, 1, 2, or 'week'
         lang: 'ru',
         theme: 'dark',
+        season: 'autumn',
         telegram_id: null,
         data: null,
         isLoading: false,
     };
+
+    // Seasons configuration
+    const SEASONS = ['autumn', 'winter', 'spring', 'summer'];
+    const SEASON_EMOJIS = {
+        autumn: '🍂',
+        winter: '❄️',
+        spring: '🌸',
+        summer: '☀️'
+    };
+    const SEASON_NAMES = {
+        ru: { autumn: 'Осень 🍂', winter: 'Зима ❄️', spring: 'Весна 🌸', summer: 'Лето ☀️' },
+        en: { autumn: 'Autumn 🍂', winter: 'Winter ❄️', spring: 'Spring 🌸', summer: 'Summer ☀️' }
+    };
+
+    function getAutoSeason() {
+        const month = new Date().getMonth(); // 0 = Jan, 9 = Oct
+        if (month >= 2 && month <= 4) return 'spring';
+        if (month >= 5 && month <= 7) return 'summer';
+        if (month >= 8 && month <= 10) return 'autumn';
+        return 'winter';
+    }
 
     // Translations for UI elements
     const i18n = {
@@ -191,15 +213,20 @@
             state.lang = savedLang;
         }
 
+        const savedSeason = localStorage.getItem('prognoz_season');
+        if (savedSeason && SEASONS.includes(savedSeason)) {
+            state.season = savedSeason;
+        } else {
+            state.season = getAutoSeason();
+        }
+
         if (savedTheme) {
             state.theme = savedTheme;
-            if (savedTheme === 'light') {
-                document.body.classList.add('theme-light');
-            }
         } else if (tg?.colorScheme === 'light') {
             state.theme = 'light';
-            document.body.classList.add('theme-light');
         }
+
+        applyAtmosphericTheme();
 
         // If user has telegram_id, try fetching saved city from DB
         if (state.telegram_id) {
@@ -221,6 +248,167 @@
         }
 
         updateUILabels();
+    }
+
+    // Apply atmospheric theme (Season + Weather Condition + Light/Dark)
+    function applyAtmosphericTheme() {
+        const cur = state.data?.current;
+        let weatherTheme = 'theme-fair';
+        let weatherCode = 0;
+        let isDay = 1;
+
+        if (cur) {
+            weatherCode = cur.weather_code;
+            isDay = cur.is_day;
+            weatherTheme = window.WeatherIcons.getWeatherTheme(weatherCode, isDay);
+        }
+
+        const classes = [];
+        if (state.theme === 'light') classes.push('theme-light');
+        classes.push(`season-${state.season}`);
+        if (weatherTheme) classes.push(weatherTheme);
+
+        document.body.className = classes.join(' ');
+
+        // Update season toggle button emoji in header
+        const btnSeason = document.getElementById("btnSeasonToggle");
+        if (btnSeason) {
+            btnSeason.textContent = SEASON_EMOJIS[state.season] || '🍂';
+            const seasonTitle = (SEASON_NAMES[state.lang] || SEASON_NAMES.ru)[state.season];
+            btnSeason.title = `${state.lang === 'ru' ? 'Время года' : 'Season'}: ${seasonTitle}`;
+        }
+
+        // Direct background scenic image assignment for instant visual update
+        const bgLayer = document.getElementById("ambientImageLayer");
+        if (bgLayer) {
+            const seasonImages = {
+                autumn: 'images/backgrounds/autumn.jpg',
+                winter: 'images/backgrounds/winter.jpg',
+                spring: 'images/backgrounds/spring.jpg',
+                summer: 'images/backgrounds/summer.jpg'
+            };
+            const imgPath = seasonImages[state.season] || seasonImages.autumn;
+            bgLayer.style.backgroundImage = `url('${imgPath}')`;
+        }
+
+        // Render ambient seasonal particles (leaves, snow, petals, shimmer, rain)
+        renderAmbientParticles(state.season, weatherTheme, weatherCode);
+
+        // Render atmospheric weather effects (lightning, rain streaks, sunbeam, aurora, shooting stars)
+        updateWeatherEffects(state.season, weatherTheme, weatherCode, isDay);
+    }
+
+    // Dynamic Weather Special Effects Layer
+    function updateWeatherEffects(season, weatherTheme, weatherCode, isDay) {
+        const fxContainer = document.getElementById("ambientWeatherFx");
+        if (!fxContainer) return;
+        fxContainer.innerHTML = "";
+
+        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode);
+        const isStorm = weatherTheme === 'theme-storm' || [95, 96, 99].includes(weatherCode);
+        const isNight = state.theme === 'dark' && (isDay === 0 || weatherTheme === 'theme-night');
+        const isSunny = (weatherTheme === 'theme-sunny' || weatherCode === 0 || weatherCode === 1) && isDay === 1;
+
+        // 1. Thunderstorm: periodic sky lightning flash
+        if (isStorm) {
+            const lightning = document.createElement("div");
+            lightning.className = "fx-lightning";
+            fxContainer.appendChild(lightning);
+        }
+
+        // 2. Rain: cascading falling streaks layer
+        if (isRain || isStorm) {
+            const rainLayer = document.createElement("div");
+            rainLayer.className = "fx-rain-layer";
+            fxContainer.appendChild(rainLayer);
+        }
+
+        // 3. Sunny: radiant sun flare glare
+        if (isSunny) {
+            const sunbeam = document.createElement("div");
+            sunbeam.className = "fx-sunbeam";
+            fxContainer.appendChild(sunbeam);
+        }
+
+        // 4. Night: aurora borealis waves and shooting star
+        if (isNight) {
+            const aurora = document.createElement("div");
+            aurora.className = "fx-night-aurora";
+            fxContainer.appendChild(aurora);
+
+            const star1 = document.createElement("div");
+            star1.className = "fx-shooting-star";
+            fxContainer.appendChild(star1);
+
+            const star2 = document.createElement("div");
+            star2.className = "fx-shooting-star";
+            star2.style.top = "26%";
+            star2.style.right = "42%";
+            star2.style.animationDelay = "4.5s";
+            star2.style.animationDuration = "11s";
+            fxContainer.appendChild(star2);
+        }
+    }
+
+    // Ambient floating particles generator
+    function renderAmbientParticles(season, weatherTheme, weatherCode) {
+        const container = document.getElementById("ambientParticles");
+        if (!container) return;
+
+        // Clear existing particles
+        container.innerHTML = "";
+
+        let particleSymbols = [];
+        let animationClass = "leaf-fall";
+        let count = 18;
+
+        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weatherCode);
+        const isSnow = weatherTheme === 'theme-snow' || [71, 73, 75, 77, 85, 86].includes(weatherCode) || season === 'winter';
+
+        if (isRain) {
+            particleSymbols = ['💧', '•', '💧', '·', '│'];
+            animationClass = "rain-fall";
+            count = 24;
+        } else if (isSnow) {
+            particleSymbols = ['❄️', '❅', '❆', '•', '·', '❄'];
+            animationClass = "snow-fall";
+            count = 22;
+        } else if (season === 'autumn') {
+            particleSymbols = ['🍂', '🍁', '🍃', '🌾', '🌰'];
+            animationClass = "leaf-fall";
+            count = 18;
+        } else if (season === 'spring') {
+            particleSymbols = ['🌸', '💮', '🌺', '🍃', '✨'];
+            animationClass = "petal-fall";
+            count = 18;
+        } else if (season === 'summer') {
+            particleSymbols = ['✨', '☀️', '🌟', '•', '💫'];
+            animationClass = "summer-shimmer";
+            count = 16;
+        }
+
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement("span");
+            p.className = `ambient-particle ${animationClass}`;
+            p.textContent = particleSymbols[i % particleSymbols.length];
+
+            const left = Math.floor(Math.random() * 96) + 2;
+            const dur = (animationClass === 'rain-fall' ? 0.9 : 7.0) + Math.random() * (animationClass === 'rain-fall' ? 0.7 : 7.0);
+            const delay = -1 * (Math.random() * 12); // Pre-warm particles across screen
+            const size = (animationClass === 'summer-shimmer' || animationClass === 'rain-fall') ? (11 + Math.random() * 9) : (16 + Math.random() * 12);
+            const opacity = 0.35 + Math.random() * 0.50;
+
+            p.style.cssText = `
+                left: ${left}%;
+                font-size: ${size}px;
+                animation-duration: ${dur}s;
+                animation-delay: ${delay}s;
+                opacity: ${opacity};
+            `;
+            fragment.appendChild(p);
+        }
+        container.appendChild(fragment);
     }
 
     // Update static labels when language changes
@@ -561,12 +749,8 @@
         // Render 7-day outlook
         renderWeek(data.forecast_7days);
 
-        // Apply atmospheric theme
-        const themeClass = window.WeatherIcons.getWeatherTheme(
-            data.current.weather_code,
-            data.current.is_day
-        );
-        document.body.className = `${state.theme === 'light' ? 'theme-light' : ''} ${themeClass}`;
+        // Apply atmospheric theme (Season + Weather Condition + Light/Dark)
+        applyAtmosphericTheme();
     }
 
     // Render Hero Card
@@ -821,16 +1005,23 @@
             });
         });
 
-        // Theme toggle
+        // Season toggle (🍂 Осень -> ❄️ Зима -> 🌸 Весна -> ☀️ Лето)
+        document.getElementById("btnSeasonToggle")?.addEventListener("click", () => {
+            triggerHaptic('light');
+            const currIdx = SEASONS.indexOf(state.season);
+            state.season = SEASONS[(currIdx + 1) % SEASONS.length];
+            localStorage.setItem('prognoz_season', state.season);
+            applyAtmosphericTheme();
+            const names = SEASON_NAMES[state.lang] || SEASON_NAMES.ru;
+            showToast(names[state.season], SEASON_EMOJIS[state.season]);
+        });
+
+        // Theme toggle (dark / light)
         document.getElementById("btnThemeToggle")?.addEventListener("click", () => {
             triggerHaptic('light');
             state.theme = state.theme === 'dark' ? 'light' : 'dark';
             localStorage.setItem('prognoz_theme', state.theme);
-            if (state.theme === 'light') {
-                document.body.classList.add('theme-light');
-            } else {
-                document.body.classList.remove('theme-light');
-            }
+            applyAtmosphericTheme();
         });
 
         // Language toggle

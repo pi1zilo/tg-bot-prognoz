@@ -538,6 +538,9 @@ def create_webapp() -> web.Application:
         js_dir = STATIC_DIR / "js"
         if js_dir.exists():
             app.router.add_static("/js", path=str(js_dir), name="js")
+        images_dir = STATIC_DIR / "images"
+        if images_dir.exists():
+            app.router.add_static("/images", path=str(images_dir), name="images")
 
     return app
 
