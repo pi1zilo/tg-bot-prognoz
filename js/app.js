@@ -253,13 +253,19 @@
     // Apply atmospheric theme (Season + Weather Condition + Light/Dark)
     function applyAtmosphericTheme() {
         const cur = state.data?.current;
+        const selectedDay = state.data?.selected_day;
+
         let weatherTheme = 'theme-fair';
         let weatherCode = 0;
         let isDay = 1;
 
-        if (cur) {
+        if (state.offset === 0 && cur) {
             weatherCode = cur.weather_code;
             isDay = cur.is_day;
+            weatherTheme = window.WeatherIcons.getWeatherTheme(weatherCode, isDay);
+        } else if (selectedDay) {
+            weatherCode = selectedDay.weather_code;
+            isDay = 1;
             weatherTheme = window.WeatherIcons.getWeatherTheme(weatherCode, isDay);
         }
 
@@ -278,17 +284,23 @@
             btnSeason.title = `${state.lang === 'ru' ? 'Время года' : 'Season'}: ${seasonTitle}`;
         }
 
-        // Direct background scenic image assignment for instant visual update
+        // Direct background scenic image assignment matching BOTH season AND current weather
         const bgLayer = document.getElementById("ambientImageLayer");
         if (bgLayer) {
-            const seasonImages = {
-                autumn: 'images/backgrounds/autumn.jpg',
-                winter: 'images/backgrounds/winter.jpg',
-                spring: 'images/backgrounds/spring.jpg',
-                summer: 'images/backgrounds/summer.jpg'
-            };
-            const imgPath = seasonImages[state.season] || seasonImages.autumn;
-            bgLayer.style.backgroundImage = `url('${imgPath}')`;
+            const isRain = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weatherCode);
+            const isSnow = [71, 73, 75, 77, 85, 86].includes(weatherCode);
+
+            let img = 'images/backgrounds/autumn.jpg';
+            if (state.season === 'summer') {
+                img = isRain ? 'images/backgrounds/summer_rain.jpg' : 'images/backgrounds/summer.jpg';
+            } else if (state.season === 'autumn') {
+                img = isRain ? 'images/backgrounds/autumn_rain.jpg' : 'images/backgrounds/autumn.jpg';
+            } else if (state.season === 'spring') {
+                img = isRain ? 'images/backgrounds/spring_rain.jpg' : 'images/backgrounds/spring.jpg';
+            } else if (state.season === 'winter') {
+                img = isSnow ? 'images/backgrounds/winter_snow.jpg' : (isRain ? 'images/backgrounds/rain.jpg' : 'images/backgrounds/winter.jpg');
+            }
+            bgLayer.style.backgroundImage = `url('${img}')`;
         }
 
         // Render ambient seasonal particles (leaves, snow, petals, shimmer, rain)
@@ -304,23 +316,40 @@
         if (!fxContainer) return;
         fxContainer.innerHTML = "";
 
-        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(weatherCode);
+        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weatherCode);
         const isStorm = weatherTheme === 'theme-storm' || [95, 96, 99].includes(weatherCode);
         const isNight = state.theme === 'dark' && (isDay === 0 || weatherTheme === 'theme-night');
         const isSunny = (weatherTheme === 'theme-sunny' || weatherCode === 0 || weatherCode === 1) && isDay === 1;
 
-        // 1. Thunderstorm: periodic sky lightning flash
+        // 1. Thunderstorm: periodic sky lightning flash + flickering jagged bolt
         if (isStorm) {
-            const lightning = document.createElement("div");
-            lightning.className = "fx-lightning";
-            fxContainer.appendChild(lightning);
+            const lightningWrap = document.createElement("div");
+            lightningWrap.className = "fx-lightning";
+
+            const flash = document.createElement("div");
+            flash.className = "fx-lightning-flash";
+            lightningWrap.appendChild(flash);
+
+            const bolt = document.createElement("div");
+            bolt.className = "fx-lightning-bolt";
+            bolt.innerHTML = `
+                <svg viewBox="0 0 100 220" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                    <path d="M65 0 L35 70 L55 80 L18 150 L42 155 L10 220 L50 145 L32 140 L70 75 L48 68 Z" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+            `;
+            lightningWrap.appendChild(bolt);
+            fxContainer.appendChild(lightningWrap);
         }
 
-        // 2. Rain: cascading falling streaks layer
+        // 2. Rain: cascading falling streaks layers
         if (isRain || isStorm) {
             const rainLayer = document.createElement("div");
             rainLayer.className = "fx-rain-layer";
             fxContainer.appendChild(rainLayer);
+
+            const rainLayerDense = document.createElement("div");
+            rainLayerDense.className = "fx-rain-dense";
+            fxContainer.appendChild(rainLayerDense);
         }
 
         // 3. Sunny: radiant sun flare glare
@@ -362,11 +391,21 @@
         let animationClass = "leaf-fall";
         let count = 18;
 
-        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weatherCode);
+        const isRain = weatherTheme === 'theme-rain' || [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(weatherCode);
         const isSnow = weatherTheme === 'theme-snow' || [71, 73, 75, 77, 85, 86].includes(weatherCode) || season === 'winter';
 
         if (isRain) {
-            particleSymbols = ['💧', '•', '💧', '·', '│'];
+            if (season === 'summer') {
+                particleSymbols = ['💧', '✨', '💧', '🌿', '•'];
+            } else if (season === 'autumn') {
+                particleSymbols = ['🍂', '💧', '🍁', '💧', '🍃'];
+            } else if (season === 'spring') {
+                particleSymbols = ['🌸', '💧', '💮', '💧', '🌺'];
+            } else if (season === 'winter') {
+                particleSymbols = ['❄️', '💧', '❅', '💧', '•'];
+            } else {
+                particleSymbols = ['💧', '•', '💧', '·', '│'];
+            }
             animationClass = "rain-fall";
             count = 24;
         } else if (isSnow) {

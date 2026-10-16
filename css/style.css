@@ -255,15 +255,40 @@ body.season-summer .ambient-image-layer {
     background-image: url('../images/backgrounds/summer.jpg');
 }
 
+/* Season + Rain / Storm / Snow scenic background variants */
+body.season-autumn.theme-rain .ambient-image-layer,
+body.season-autumn.theme-storm .ambient-image-layer {
+    background-image: url('../images/backgrounds/autumn_rain.jpg');
+}
+
+body.season-winter.theme-snow .ambient-image-layer {
+    background-image: url('../images/backgrounds/winter_snow.jpg');
+}
+
+body.season-winter.theme-rain .ambient-image-layer,
+body.season-winter.theme-storm .ambient-image-layer {
+    background-image: url('../images/backgrounds/rain.jpg');
+}
+
+body.season-spring.theme-rain .ambient-image-layer,
+body.season-spring.theme-storm .ambient-image-layer {
+    background-image: url('../images/backgrounds/spring_rain.jpg');
+}
+
+body.season-summer.theme-rain .ambient-image-layer,
+body.season-summer.theme-storm .ambient-image-layer {
+    background-image: url('../images/backgrounds/summer_rain.jpg');
+}
+
 /* Atmospheric weather and night tone adjustments over seasonal scenery */
 body.theme-rain .ambient-image-layer {
-    filter: saturate(85%) brightness(0.82) contrast(115%);
-    opacity: 0.88;
+    filter: saturate(95%) brightness(0.85) contrast(110%);
+    opacity: 0.90;
 }
 
 body.theme-storm .ambient-image-layer {
-    filter: saturate(75%) brightness(0.68) contrast(125%);
-    opacity: 0.90;
+    filter: saturate(85%) brightness(0.75) contrast(120%);
+    opacity: 0.92;
 }
 
 body.theme-night .ambient-image-layer {
@@ -272,7 +297,7 @@ body.theme-night .ambient-image-layer {
 }
 
 body.theme-light .ambient-image-layer {
-    opacity: 0.72;
+    opacity: 0.75;
     filter: saturate(120%) contrast(100%) brightness(1.02);
 }
 
@@ -280,13 +305,13 @@ body.theme-light .ambient-image-layer {
 .ambient-gradient-layer {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(8, 12, 22, 0.18) 0%, rgba(8, 12, 22, 0.50) 100%);
+    background: linear-gradient(180deg, rgba(8, 12, 22, 0.15) 0%, rgba(8, 12, 22, 0.45) 100%);
     transition: background 0.8s ease;
     pointer-events: none;
 }
 
 body.theme-light .ambient-gradient-layer {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.38) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.35) 100%);
 }
 
 .ambient-lighting-layer {
@@ -308,20 +333,78 @@ body.theme-light .ambient-gradient-layer {
     z-index: 2;
 }
 
-/* Storm Lightning Flash Effect */
+/* Storm Lightning Flash & Jagged Bolt Effect */
 .fx-lightning {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.fx-lightning-flash {
     position: absolute;
     inset: 0;
     background: rgba(255, 255, 255, 0);
     pointer-events: none;
-    animation: stormSkyFlash 6s infinite ease-out;
+    animation: stormSkyFlash 7s infinite ease-out;
 }
 
 @keyframes stormSkyFlash {
-    0%, 91%, 95%, 100% { background: rgba(255, 255, 255, 0); }
-    92% { background: rgba(220, 230, 255, 0.35); }
-    93% { background: rgba(255, 255, 255, 0.68); }
-    94% { background: rgba(180, 200, 255, 0.22); }
+    0%, 88%, 94%, 100% {
+        background: rgba(255, 255, 255, 0);
+    }
+    89% {
+        background: rgba(210, 225, 255, 0.45);
+    }
+    90% {
+        background: rgba(255, 255, 255, 0.85);
+    }
+    91% {
+        background: rgba(180, 205, 255, 0.30);
+    }
+    92% {
+        background: rgba(255, 255, 255, 0.75);
+    }
+    93% {
+        background: rgba(160, 190, 255, 0.15);
+    }
+}
+
+.fx-lightning-bolt {
+    position: absolute;
+    top: 6%;
+    left: 28%;
+    width: 130px;
+    height: 260px;
+    pointer-events: none;
+    opacity: 0;
+    animation: lightningBoltFlicker 7s infinite ease-out;
+    filter: drop-shadow(0 0 16px rgba(147, 197, 253, 0.95)) drop-shadow(0 0 32px rgba(96, 165, 250, 0.6));
+}
+
+@keyframes lightningBoltFlicker {
+    0%, 88%, 94%, 100% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    89% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    90% {
+        opacity: 1;
+        transform: scale(1.02);
+    }
+    91% {
+        opacity: 0.3;
+    }
+    92% {
+        opacity: 0.95;
+        transform: scale(1.01);
+    }
+    93% {
+        opacity: 0;
+    }
 }
 
 /* Sunbeam Lens Flare Glare Effect */
@@ -343,7 +426,7 @@ body.theme-light .ambient-gradient-layer {
     100% { transform: scale(1.15) rotate(15deg); opacity: 0.95; }
 }
 
-/* Rain Cascading Streaks Layer */
+/* Rain Cascading Streaks Layers */
 .fx-rain-layer {
     position: absolute;
     inset: 0;
@@ -351,12 +434,24 @@ body.theme-light .ambient-gradient-layer {
         105deg,
         transparent,
         transparent 15px,
-        rgba(255, 255, 255, 0.08) 16px,
+        rgba(255, 255, 255, 0.12) 16px,
         transparent 17px
     );
     pointer-events: none;
-    animation: rainSlide 0.6s linear infinite;
-    opacity: 0.75;
+    animation: rainSlide 0.55s linear infinite;
+    opacity: 0.85;
+}
+
+.fx-rain-dense {
+    background: repeating-linear-gradient(
+        110deg,
+        transparent,
+        transparent 28px,
+        rgba(255, 255, 255, 0.08) 29px,
+        transparent 30px
+    );
+    animation: rainSlide 0.38s linear infinite;
+    opacity: 0.70;
 }
 
 @keyframes rainSlide {
