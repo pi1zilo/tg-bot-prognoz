@@ -12,9 +12,15 @@ set -e
 # You can pre-fill these values or leave them empty for interactive prompt.
 # Можно заполнить эти значения заранее или оставить пустыми для ввода в терминале.
 # ==============================================================================
-CONFIG_LANG=""                     # Language: "ru", "en", or "" (interactive/auto)
+CONFIG_LANG="ru"                   # Default language: "ru" or "en"
 CONFIG_BOT_TOKEN=""                # Telegram Bot Token from @BotFather
-CONFIG_WEB_APP_URL="https://weather.bilionid.ru" # Mini App URL
+
+# Mini App URL / Адрес веб-приложения:
+# - Оставьте "https://weather.bilionid.ru" для стандартного сайта.
+# - Или укажите свой сайт (например: "https://weather.yourdomain.com").
+# - При запуске скрипт предложит нажать [Enter] для стандартного или ввести свой адрес.
+CONFIG_WEB_APP_URL="https://weather.bilionid.ru"
+
 CONFIG_WEB_APP_PORT="8080"         # Mini App HTTP server port
 CONFIG_DATABASE_PATH="weather_bot.db"
 
@@ -29,13 +35,20 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Detect command line flags for language
+# Detect command line flags
 CLI_LANG=""
 CLI_ACTION=""
+CLI_URL=""
+CLI_TOKEN=""
+NON_INTERACTIVE="false"
+
 for arg in "$@"; do
     case "$arg" in
         --ru|--lang=ru) CLI_LANG="ru" ;;
         --en|--lang=en) CLI_LANG="en" ;;
+        --url=*) CLI_URL="${arg#*=}" ;;
+        --token=*) CLI_TOKEN="${arg#*=}" ;;
+        -y|--yes|--non-interactive) NON_INTERACTIVE="true" ;;
         --logs|-l) CLI_ACTION="logs" ;;
         --status|-s) CLI_ACTION="status" ;;
         --restart|-r) CLI_ACTION="restart" ;;
@@ -282,7 +295,10 @@ mkdir -p data logs
 chmod 777 data logs 2>/dev/null || true
 
 # 1. BOT_TOKEN configuration
-FINAL_BOT_TOKEN="${CONFIG_BOT_TOKEN}"
+FINAL_BOT_TOKEN="${CLI_TOKEN}"
+if [ -z "$FINAL_BOT_TOKEN" ]; then
+    FINAL_BOT_TOKEN="${CONFIG_BOT_TOKEN}"
+fi
 if [ -z "$FINAL_BOT_TOKEN" ]; then
     FINAL_BOT_TOKEN="${BOT_TOKEN}"
 fi
@@ -307,26 +323,48 @@ if [ -z "$FINAL_BOT_TOKEN" ] || [ "$FINAL_BOT_TOKEN" == "your_telegram_bot_token
     fi
 fi
 
-# 2. WEB_APP_URL configuration
-FINAL_WEB_APP_URL="${CONFIG_WEB_APP_URL}"
-if [ -z "$FINAL_WEB_APP_URL" ]; then
-    FINAL_WEB_APP_URL="${WEB_APP_URL}"
+# 2. WEB_APP_URL configuration (Default / Custom site)
+DEFAULT_URL="${EXISTING_URL}"
+if [ -z "$DEFAULT_URL" ]; then
+    DEFAULT_URL="${CONFIG_WEB_APP_URL}"
 fi
-if [ -z "$FINAL_WEB_APP_URL" ] && [ -n "$EXISTING_URL" ]; then
-    FINAL_WEB_APP_URL="$EXISTING_URL"
+if [ -z "$DEFAULT_URL" ]; then
+    DEFAULT_URL="https://weather.bilionid.ru"
 fi
 
-if [ -z "$FINAL_WEB_APP_URL" ] && [ "$CLI_ACTION" != "update" ]; then
+FINAL_WEB_APP_URL=""
+if [ -n "$CLI_URL" ]; then
+    FINAL_WEB_APP_URL="$CLI_URL"
+elif [ "$NON_INTERACTIVE" == "true" ] || [ "$CLI_ACTION" == "update" ]; then
+    FINAL_WEB_APP_URL="$DEFAULT_URL"
+else
     echo ""
     if [ "$UI_LANG" == "ru" ]; then
-        info "URL для Telegram Mini App (требуется HTTPS для кнопки меню в Telegram)."
-        read -rp "Введите URL Web App [по умолчанию https://weather.bilionid.ru]: " INPUT_URL
+        info "Настройка веб-сайта для Telegram Mini App (требуется HTTPS):"
+        echo -e "  Стандартный сайт: ${YELLOW}${DEFAULT_URL}${NC}"
+        echo -e "  • Нажмите ${GREEN}[Enter]${NC}, чтобы использовать стандартный сайт"
+        echo -e "  • Или введите адрес ${BLUE}своего сайта${NC} (например: https://weather.mydomain.com)"
+        echo -e "  • Или введите ${YELLOW}-${NC} (дефис), чтобы отключить Mini App"
+        read -rp "URL Mini App [Enter = $DEFAULT_URL]: " INPUT_URL
     else
-        info "URL for Telegram Mini App (HTTPS required for Telegram menu button)."
-        read -rp "Enter Web App URL [default https://weather.bilionid.ru]: " INPUT_URL
+        info "Telegram Mini App website configuration (HTTPS required):"
+        echo -e "  Default website: ${YELLOW}${DEFAULT_URL}${NC}"
+        echo -e "  • Press ${GREEN}[Enter]${NC} to use default website"
+        echo -e "  • Or enter your ${BLUE}custom website${NC} (e.g. https://weather.mydomain.com)"
+        echo -e "  • Or enter ${YELLOW}-${NC} (dash) to disable Mini App"
+        read -rp "Mini App URL [Enter = $DEFAULT_URL]: " INPUT_URL
     fi
     INPUT_URL=$(echo "$INPUT_URL" | xargs)
-    FINAL_WEB_APP_URL="${INPUT_URL:-https://weather.bilionid.ru}"
+    if [ "$INPUT_URL" == "-" ] || [ "$INPUT_URL" == "none" ] || [ "$INPUT_URL" == "null" ]; then
+        FINAL_WEB_APP_URL=""
+    elif [ -n "$INPUT_URL" ]; then
+        if [[ ! "$INPUT_URL" =~ ^https?:// ]]; then
+            INPUT_URL="https://${INPUT_URL}"
+        fi
+        FINAL_WEB_APP_URL="$INPUT_URL"
+    else
+        FINAL_WEB_APP_URL="$DEFAULT_URL"
+    fi
 fi
 
 # 3. WEB_APP_PORT configuration

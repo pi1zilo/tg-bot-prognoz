@@ -441,14 +441,16 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-В файле [deploy.sh](file:///y:/code/projects/telegram-bots/prognoz/deploy.sh) в блоке `НАСТРОЙКИ БОТА` в начале файла можно сразу указать ваш `CONFIG_BOT_TOKEN`, либо скрипт интерактивно запросит его в консоли при первом запуске.
+В файле [deploy.sh](file:///y:/code/projects/telegram-bots/prognoz/deploy.sh) в блоке `НАСТРОЙКИ БОТА` в начале файла можно сразу указать ваш `CONFIG_BOT_TOKEN` и при желании свой сайт в `CONFIG_WEB_APP_URL`. При первом запуске скрипт также предложит нажать `Enter` для использования стандартного сайта (`https://weather.bilionid.ru`) либо ввести адрес своего домена.
 
-Команды быстрого управления на сервере:
+Флаги и команды управления на сервере:
 - Просмотр логов в реальном времени: `./deploy.sh --logs` (или `docker compose logs -f`)
 - Статус работы контейнера: `./deploy.sh --status`
 - Перезапуск бота: `./deploy.sh --restart`
 - Остановка бота: `./deploy.sh --stop`
 - Обновление на свежий образ из GHCR: `./deploy.sh --update`
+- Запуск со своим сайтом: `./deploy.sh --url=https://weather.mydomain.com`
+- Автоматический запуск без вопросов: `./deploy.sh -y` (или `--token=... --url=...`)
 
 #### Вариант 2: Запуск через Docker Compose вручную
 
