@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -524,7 +524,7 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.json_response({
         "status": "ok",
         "app": "prognoz-weather-mini-app",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(UTC).isoformat()
     })
 
 

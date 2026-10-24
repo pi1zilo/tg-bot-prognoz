@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -56,13 +56,37 @@ async def test_static_files(webapp_client):
     assert "WeatherIcons" in icons_text
 
 
+MOCK_SEARCH_RESULTS = [
+    {
+        "id": 524901,
+        "name": "Москва",
+        "latitude": 55.75222,
+        "longitude": 37.61556,
+        "timezone": "Europe/Moscow",
+        "country": "Россия",
+        "admin1": "Москва",
+        "display_name": "Москва, Россия",
+    }
+]
+
+
 @pytest.mark.asyncio
 async def test_api_search(webapp_client):
-    resp = await webapp_client.get("/api/search?q=Москва")
-    assert resp.status == 200
-    data = await resp.json()
-    assert data["success"] is True
-    assert isinstance(data["results"], list)
+    with patch("src.app.webapp.server.search_settlements", new_callable=AsyncMock, return_value=MOCK_SEARCH_RESULTS):
+        resp = await webapp_client.get("/api/search?q=Москва")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["success"] is True
+        assert isinstance(data["results"], list)
+        assert len(data["results"]) == 1
+        assert data["results"][0]["name"] == "Москва"
+
+    # Test empty query
+    resp_empty = await webapp_client.get("/api/search?q=")
+    assert resp_empty.status == 200
+    data_empty = await resp_empty.json()
+    assert data_empty["success"] is True
+    assert data_empty["results"] == []
 
 
 @pytest.mark.asyncio

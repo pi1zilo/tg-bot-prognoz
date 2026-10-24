@@ -1,15 +1,19 @@
 # 🌦 Prognoz Weather Bot
 
+[![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-@PogStepanBot-0088cc.svg?logo=telegram)](https://t.me/PogStepanBot)
+[![Mini App](https://img.shields.io/badge/Mini%20App-weather.bilionid.ru-0088cc.svg?logo=googlechrome)](https://weather.bilionid.ru)
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![aiogram](https://img.shields.io/badge/aiogram-3.13.1-blue.svg)](https://docs.aiogram.dev/)
 [![Tests](https://img.shields.io/badge/tests-104%20passed-success.svg)](tests/)
-[![Mini App](https://img.shields.io/badge/Mini%20App-weather.bilionid.ru-0088cc.svg)](https://weather.bilionid.ru)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![CI](https://github.com/pi1zilo/tg-bot-prognoz/actions/workflows/tests.yml/badge.svg)](https://github.com/pi1zilo/tg-bot-prognoz/actions)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](Dockerfile)
 [![Open-Meteo](https://img.shields.io/badge/data-Open--Meteo-orange.svg)](https://open-meteo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Russian README](https://img.shields.io/badge/README-Русский-blue.svg)](README.md)
+
+> 🤖 **Telegram Bot**: [@PogStepanBot](https://t.me/PogStepanBot)  
+> 🌐 **Live Web App (Mini App)**: [weather.bilionid.ru](https://weather.bilionid.ru)
 
 An asynchronous Telegram bot for precise weather forecasting and historical weather archives featuring smart geocoding for small settlements, time-of-day period breakdown, and an interactive Telegram Mini App (TMA).
 
@@ -656,6 +660,8 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## 🔗 Useful Links
 
+- **Telegram Bot**: [@PogStepanBot](https://t.me/PogStepanBot)
+- **Live Web App (Mini App)**: [https://weather.bilionid.ru](https://weather.bilionid.ru)
 - **GitHub Repository**: [https://github.com/pi1zilo/tg-bot-prognoz](https://github.com/pi1zilo/tg-bot-prognoz)
 - **Weather Data Provider**: [Open-Meteo](https://open-meteo.com/)
 - **Telegram Framework**: [aiogram Documentation](https://docs.aiogram.dev/)
