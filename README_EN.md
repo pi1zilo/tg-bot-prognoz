@@ -407,6 +407,8 @@ Ensure your virtual environment is active and `.env` is populated:
 python main.py
 ```
 
+On Windows, you can also use [run_bot.bat](file:///y:/code/projects/telegram-bots/prognoz/run_bot.bat) (or `start.bat`), which auto-detects `.venv`, validates `.env`, and starts the bot with one click.
+
 Upon successful startup, the console will log:
 ```text
 [HH:MM:SS] [INFO]: Bot started and awaiting messages...

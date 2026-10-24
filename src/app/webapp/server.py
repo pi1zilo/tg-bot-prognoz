@@ -368,6 +368,24 @@ async def handle_weather(request: web.Request) -> web.Response:
             })
             added_count += 1
 
+    # Fallback if today's date was not found in daily_times
+    if not forecast_7days and daily_times:
+        for i, d_str in enumerate(daily_times[:7]):
+            dt_item = datetime.fromisoformat(d_str)
+            item_code = daily.get("weather_code", [])[i] if i < len(daily.get("weather_code", [])) else 0
+            item_emoji, item_desc = get_weather_info(item_code, lang)
+            forecast_7days.append({
+                "date": d_str,
+                "day_name": format_day_name(dt_item, i, lang),
+                "date_short": format_short_date(dt_item, lang),
+                "temp_min": round(daily.get("temperature_2m_min", [])[i], 1) if i < len(daily.get("temperature_2m_min", [])) else 0.0,
+                "temp_max": round(daily.get("temperature_2m_max", [])[i], 1) if i < len(daily.get("temperature_2m_max", [])) else 0.0,
+                "weather_code": item_code,
+                "weather_emoji": item_emoji,
+                "weather_desc": item_desc,
+                "precipitation_probability": round(daily.get("precipitation_probability_max", [])[i] or 0) if i < len(daily.get("precipitation_probability_max", [])) else 0,
+            })
+
     selected_day_payload = {
         "offset": offset,
         "date": target_date_str,

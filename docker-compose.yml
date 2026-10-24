@@ -1,13 +1,16 @@
 services:
   bot:
-    build: .
+    image: ghcr.io/pi1zilo/tg-bot-prognoz:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: weather_telegram_bot
     restart: unless-stopped
     env_file:
       - .env
+    ports:
+      - "${WEB_APP_PORT:-8080}:8080"
     volumes:
-      - bot_data:/app/data
-
-volumes:
-  bot_data:
+      - ./data:/app/data
+      - ./logs:/app/logs
 
